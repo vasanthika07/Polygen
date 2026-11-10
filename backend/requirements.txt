@@ -1,0 +1,32 @@
+# Core FastAPI & ASGI
+fastapi>=0.110.0,<1.0.0
+uvicorn[standard]>=0.28.0,<1.0.0
+pydantic>=2.6.0,<3.0.0
+pydantic-settings>=2.2.0,<3.0.0
+python-multipart>=0.0.9
+
+# Database & Storage
+sqlalchemy>=2.0.28,<3.0.0
+alembic>=1.13.1
+aiosqlite>=0.20.0
+
+# Authentication & Security
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+bcrypt==4.0.1
+
+# Async & Networking
+httpx>=0.27.0
+websockets>=12.0
+python-dotenv>=1.0.1
+
+# 3D Mesh & Geometry Processing
+numpy>=1.24.0,<2.0.0
+scipy>=1.11.0,<1.13.0
+trimesh[easy]>=4.2.0
+xatlas>=0.0.9
+Pillow>=10.2.0
+
+# PyTorch (will install CPU wheel) & AI
+# torch, torchvision, shap-e (installed in environment setup)
+

@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: polygen-db
+    environment:
+      POSTGRES_USER: polygen_user
+      POSTGRES_PASSWORD: polygen_password
+      POSTGRES_DB: polygen_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - polygen_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U polygen_user -d polygen_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: polygen-redis
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: polygen-backend
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://polygen_user:polygen_password@db:5432/polygen_db
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_DIR=/app/storage
+      - AI_BACKEND=procedural
+      - DEVICE=cpu
+    volumes:
+      - ./storage:/app/storage
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  frontend:
+    image: node:20-alpine
+    container_name: polygen-frontend
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "5173:5173"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    depends_on:
+      - backend
+
+volumes:
+  polygen_pgdata:
+
