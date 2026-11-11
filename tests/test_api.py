@@ -79,6 +79,15 @@ async def run_api_tests():
         assert res.status_code == 200, f"List assets failed: {res.text}"
         print("✓ /api/assets passed")
 
+    # 7. Test WebSocket stream endpoint
+    from starlette.testclient import TestClient
+    with TestClient(app) as test_client:
+        with test_client.websocket_connect(f"/ws/jobs/{job_id}") as websocket:
+            websocket.send_text("ping")
+            pong = websocket.receive_json()
+            assert pong == {"type": "pong"}, f"Unexpected WS response: {pong}"
+            print(f"✓ /ws/jobs/{job_id} WebSocket bidirectional ping-pong verified")
+
     print("\nAll Backend API integration tests passed successfully!")
 
 if __name__ == "__main__":
