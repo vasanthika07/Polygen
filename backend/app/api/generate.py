@@ -1,3 +1,4 @@
+from typing import List, Optional
 import asyncio
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -45,6 +46,21 @@ async def generate_asset(
     )
 
     return JobStatusResponse.model_validate(job)
+
+@router.get("/jobs", response_model=List[JobStatusResponse])
+async def list_jobs(limit: int = 50, offset: int = 0, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(GenerationJob).order_by(GenerationJob.created_at.desc()).offset(offset).limit(limit)
+    )
+    jobs = result.scalars().all()
+    responses = []
+    for j in jobs:
+        asset_res = await db.execute(select(GeneratedAsset).where(GeneratedAsset.job_id == j.job_id))
+        asset = asset_res.scalars().first()
+        item = JobStatusResponse.model_validate(j)
+        item.asset_id = asset.asset_id if asset else None
+        responses.append(item)
+    return responses
 
 @router.get("/jobs/{job_id}", response_model=JobStatusResponse)
 async def get_job_status(job_id: str, db: AsyncSession = Depends(get_db)):

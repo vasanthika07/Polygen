@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -30,27 +32,33 @@ export interface GenerationRequest {
   target_format?: string;
 }
 
-export interface JobStatus {
-  job_id: string;
-  prompt: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  progress: number;
-  current_stage: string;
-  error_message?: string;
-  asset_id?: string;
-}
-
 export interface Asset {
   asset_id: string;
-  job_id: string;
+  job_id?: string;
   user_id?: string;
   asset_name: string;
+  prompt?: string;
+  style?: string;
   glb_url: string;
   preview_url?: string;
   polygon_count: number;
   file_size: number;
-  texture_resolution: number;
+  texture_resolution?: number;
   created_at: string;
+}
+
+export interface JobStatus {
+  job_id: string;
+  prompt: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | string;
+  progress: number;
+  current_stage?: string;
+  stage?: string;
+  error_message?: string;
+  asset_id?: string;
+  created_at?: string;
+  completed_at?: string;
+  asset?: Asset;
 }
 
 export const authApi = {
@@ -66,6 +74,8 @@ export const generationApi = {
     api.post<JobStatus>('/generate', data),
   getJobStatus: (jobId: string) =>
     api.get<JobStatus>(`/jobs/${jobId}`),
+  listJobs: (limit = 50, offset = 0) =>
+    api.get<JobStatus[]>(`/jobs?limit=${limit}&offset=${offset}`),
 };
 
 export const assetApi = {
@@ -83,4 +93,3 @@ export const healthApi = {
 };
 
 export default api;
-

@@ -99,3 +99,4 @@ To accommodate environments with varying compute resources, the AI engine isolat
 - **`local_shape`**: Runs OpenAI Shap-E in PyTorch CPU/CUDA mode. Weights are cached on high-capacity storage (`D:\shap_e_model_cache`).
 - **`procedural`**: Generates high-fidelity volumetric surfaces (with complete PBR texturing and decimation) with sub-second execution latency, ideal for continuous testing, edge devices, and instant rendering.
 - **`remote_gpu`**: Dispatches requests to remote CUDA instances running larger multi-view models (e.g. Hunyuan3D / TripoSR).
+

@@ -76,3 +76,4 @@ Click **Asset Library** in the navigation header:
 > *"PolyGen eliminates hours of tedious 3D grunt work, empowering game development studios and indie developers to populate worlds rapidly with production-grade 3D assets.*
 > 
 > *Thank you, and we're ready to answer any questions."*
+

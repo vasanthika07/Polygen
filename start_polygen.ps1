@@ -1,4 +1,4 @@
-﻿# PolyGen Interactive Launcher Script
+# PolyGen Interactive Launcher Script
 Write-Host "===================================================================" -ForegroundColor Cyan
 Write-Host " POLYGEN – Generative Text-to-3D Asset Pipeline" -ForegroundColor White
 Write-Host " Spatial Computing | 3D Graphics | Generative AI" -ForegroundColor DarkGray
@@ -21,3 +21,4 @@ Write-Host " - WebSocket Hub:   ws://127.0.0.1:8000/ws/jobs/{id}" -ForegroundCol
 Write-Host "`nPress Ctrl+C to terminate the server.`n" -ForegroundColor DarkGray
 
 & "$CurrentDir\venv\Scripts\python.exe" -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 --reload
+

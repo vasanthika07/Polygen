@@ -161,3 +161,4 @@
 - **Method**: `DELETE`
 - **Route**: `/api/assets/{asset_id}`
 - **Response**: `204 No Content`
+

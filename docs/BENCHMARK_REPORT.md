@@ -65,3 +65,4 @@ Scenario                   | Faces   | Verts   | Size MB  | Time (s) | Status
 - **PBR Texture Output**: Rough chiseled rock albedo with mossy tint, high roughness (0.85), micro-faceted normal map.
 - **GLB Size**: 3.55 MB.
 - **Verification**: Smooth organic manifold geometry; preserves silhouette and surface curvature after decimation.
+
