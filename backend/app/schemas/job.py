@@ -21,8 +21,11 @@ class StructuredPrompt(BaseModel):
     raw_prompt: str
 
 class JobStatusResponse(BaseModel):
+    id: str
     job_id: str
+    user_id: Optional[str] = None
     prompt: str
+    configuration: Optional[Dict[str, Any]] = None
     status: str
     progress: int
     current_stage: str
@@ -34,10 +37,26 @@ class JobStatusResponse(BaseModel):
     class Config:
         from_attributes = True
 
+    @classmethod
+    def from_job_model(cls, job, asset_id: Optional[str] = None):
+        return cls(
+            id=job.id,
+            job_id=job.id,
+            user_id=job.user_id,
+            prompt=job.prompt,
+            configuration=job.configuration,
+            status=job.status,
+            progress=job.progress,
+            current_stage=job.current_stage,
+            error_message=job.error_message,
+            created_at=job.created_at,
+            completed_at=job.completed_at,
+            asset_id=asset_id,
+        )
+
 class StageUpdateMessage(BaseModel):
     job_id: str
     stage: str
     progress: int
     message: str
     data: Optional[Dict[str, Any]] = None
-

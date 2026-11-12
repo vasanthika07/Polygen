@@ -14,9 +14,13 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
 async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)):
-    # Check if username or email exists
+    """Registers a new user and issues a JWT session token."""
+    username = user_in.username or user_in.email.split("@")[0]
+    name = user_in.name or username
+
+    # Check if username or email already registered
     result = await db.execute(
-        select(User).where((User.username == user_in.username) | (User.email == user_in.email))
+        select(User).where((User.username == username) | (User.email == user_in.email))
     )
     existing_user = result.scalars().first()
     if existing_user:
@@ -27,7 +31,8 @@ async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)):
     
     hashed_pwd = get_password_hash(user_in.password)
     user = User(
-        username=user_in.username,
+        name=name,
+        username=username,
         email=user_in.email,
         password_hash=hashed_pwd,
     )
@@ -47,6 +52,7 @@ async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
+    """Authenticates user credentials and returns JWT bearer token."""
     result = await db.execute(
         select(User).where(
             (User.username == credentials.username_or_email) | 
@@ -57,7 +63,7 @@ async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
     if not user or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Incorrect email/username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
@@ -73,9 +79,10 @@ async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
 
 @router.post("/logout")
 async def logout():
-    return {"message": "Successfully logged out"}
+    """Logs out user (invalidating client-side token)."""
+    return {"message": "Successfully logged out of session"}
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
+    """Returns profile for currently authenticated user."""
     return UserResponse.model_validate(current_user)
-

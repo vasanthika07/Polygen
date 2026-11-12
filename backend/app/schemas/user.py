@@ -3,17 +3,19 @@ from typing import Optional
 from pydantic import BaseModel, EmailStr, Field
 
 class UserRegister(BaseModel):
-    username: str = Field(..., min_length=3, max_length=50)
-    email: EmailStr
-    password: str = Field(..., min_length=6)
+    name: Optional[str] = Field(None, max_length=128, description="Display name of user")
+    username: Optional[str] = Field(None, max_length=64, description="Unique username")
+    email: EmailStr = Field(..., description="User email address")
+    password: str = Field(..., min_length=6, description="Password (at least 6 characters)")
 
 class UserLogin(BaseModel):
-    username_or_email: str
-    password: str
+    username_or_email: str = Field(..., description="Username or email address")
+    password: str = Field(..., description="User password")
 
 class UserResponse(BaseModel):
     id: str
-    username: str
+    name: Optional[str] = None
+    username: Optional[str] = None
     email: str
     created_at: datetime
 
@@ -24,7 +26,3 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
-
-class TokenData(BaseModel):
-    user_id: Optional[str] = None
-

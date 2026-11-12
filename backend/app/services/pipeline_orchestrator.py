@@ -10,6 +10,7 @@ from app.models.job import GenerationJob
 from app.models.asset import GeneratedAsset
 from app.core.websocket_manager import ws_manager
 from app.services.prompt_engine import prompt_engine
+from app.services.storage import storage_service
 from ai_models.text_to_3d.generator import text_to_3d_generator
 from processing.mesh_cleaner import mesh_cleaner
 from processing.uv_unwrapper import uv_unwrapper
@@ -40,12 +41,19 @@ class PipelineOrchestrator:
 
         async def update_stage(stage: str, progress: int, message: str, data: dict = None):
             async with db_factory() as db:
-                result = await db.execute(select(GenerationJob).where(GenerationJob.job_id == job_id))
+                result = await db.execute(select(GenerationJob).where(GenerationJob.id == job_id))
                 job = result.scalars().first()
                 if job:
                     job.current_stage = stage
                     job.progress = progress
-                    job.status = "processing"
+                    if stage == "completed":
+                        job.status = "completed"
+                        if not job.completed_at:
+                            job.completed_at = datetime.utcnow()
+                    elif stage == "failed":
+                        job.status = "failed"
+                    else:
+                        job.status = "processing"
                     await db.commit()
 
             # Broadcast via WebSocket
@@ -62,7 +70,7 @@ class PipelineOrchestrator:
         try:
             # Retrieve initial job
             async with db_factory() as db:
-                result = await db.execute(select(GenerationJob).where(GenerationJob.job_id == job_id))
+                result = await db.execute(select(GenerationJob).where(GenerationJob.id == job_id))
                 job = result.scalars().first()
                 if not job:
                     logger.error(f"Job {job_id} not found.")
@@ -168,20 +176,32 @@ class PipelineOrchestrator:
             final_file_size = export_stats["file_size_bytes"]
             asset_name = f"{structured_prompt.object.title()} ({structured_prompt.style.title()})"
 
+            metadata_payload = {
+                "structured_prompt": structured_prompt.model_dump(),
+                "clean_stats": clean_stats,
+                "uv_stats": uv_stats,
+                "opt_stats": opt_stats,
+                "export_stats": export_stats,
+                "dimensions": export_stats.get("bounding_box_dimensions", []),
+                "texture_maps": list(tex_paths.keys()),
+            }
+
             async with db_factory() as db:
                 asset = GeneratedAsset(
                     job_id=job_id,
                     user_id=user_id,
                     asset_name=asset_name,
+                    original_prompt=raw_prompt,
                     glb_path=output_glb_path,
-                    preview_path=tex_paths.get("basecolor"),
+                    thumbnail_path=tex_paths.get("basecolor"),
                     polygon_count=final_poly_count,
                     file_size=final_file_size,
                     texture_resolution=1024 if quality != "standard" else 512,
+                    metadata_json=metadata_payload,
                 )
                 db.add(asset)
                 
-                result = await db.execute(select(GenerationJob).where(GenerationJob.job_id == job_id))
+                result = await db.execute(select(GenerationJob).where(GenerationJob.id == job_id))
                 job = result.scalars().first()
                 if job:
                     job.status = "completed"
@@ -190,7 +210,7 @@ class PipelineOrchestrator:
                     job.completed_at = datetime.utcnow()
                 await db.commit()
                 await db.refresh(asset)
-                asset_id = asset.asset_id
+                asset_id = asset.id
 
             await update_stage(
                 stage="completed",
@@ -210,7 +230,7 @@ class PipelineOrchestrator:
         except Exception as e:
             logger.error(f"Pipeline failed for job {job_id}: {e}", exc_info=True)
             async with db_factory() as db:
-                result = await db.execute(select(GenerationJob).where(GenerationJob.job_id == job_id))
+                result = await db.execute(select(GenerationJob).where(GenerationJob.id == job_id))
                 job = result.scalars().first()
                 if job:
                     job.status = "failed"
@@ -227,4 +247,3 @@ class PipelineOrchestrator:
             })
 
 pipeline_orchestrator = PipelineOrchestrator()
-
