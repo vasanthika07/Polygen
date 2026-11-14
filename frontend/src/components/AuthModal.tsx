@@ -9,7 +9,7 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
-  const { setUser, setToken } = useStore();
+  const { setSession, addNotification } = useStore();
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -30,16 +30,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           username_or_email: username,
           password,
         });
-        setToken(res.data.access_token);
-        setUser(res.data.user);
+        setSession(res.data.access_token, res.data.refresh_token || null, res.data.user);
+        addNotification({
+          title: 'Welcome Back',
+          message: `Signed in as ${res.data.user.username}`,
+          type: 'success',
+        });
       } else {
         const res = await authApi.register({
           username,
           email,
           password,
         });
-        setToken(res.data.access_token);
-        setUser(res.data.user);
+        setSession(res.data.access_token, res.data.refresh_token || null, res.data.user);
+        addNotification({
+          title: 'Account Created',
+          message: `Welcome to PolyGen, ${res.data.user.username}`,
+          type: 'success',
+        });
       }
       onClose();
     } catch (err: any) {

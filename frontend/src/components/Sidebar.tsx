@@ -161,7 +161,7 @@ export const Sidebar: React.FC = () => {
               </div>
               {!sidebarCollapsed && (
                 <div className="truncate text-left">
-                  <div className="text-xs font-semibold text-slate-200 truncate">{user.username}</div>
+                  <div className="text-xs font-semibold text-slate-200 truncate">{user.name || user.username}</div>
                   <div className="text-[10px] text-slate-400 truncate">{user.email}</div>
                 </div>
               )}

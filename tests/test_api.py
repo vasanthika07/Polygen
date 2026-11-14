@@ -149,7 +149,7 @@ async def run_api_tests():
         print(f"✓ GET /api/assets/{asset_id} passed (Polygons: {asset_detail['polygon_count']}, Size: {asset_detail['file_size']} bytes)")
 
         # 13. Test GET /api/assets/{asset_id}/download
-        res = await client.get(f"/api/assets/{asset_id}/download")
+        res = await client.get(f"/api/assets/{asset_id}/download", headers=auth_headers)
         assert res.status_code == 200, f"Download failed: {res.text}"
         assert res.headers.get("content-type") == "model/gltf-binary"
         # Validate binary header

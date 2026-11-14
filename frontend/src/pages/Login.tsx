@@ -9,11 +9,12 @@ import {
   AlertCircle, 
   Eye, 
   EyeOff, 
-  Sparkles
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 
 export const Login: React.FC = () => {
-  const { navigate, setUser, setToken, addNotification } = useStore();
+  const { navigate, setSession, addNotification } = useStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -24,11 +25,12 @@ export const Login: React.FC = () => {
   const handleFillDemo = () => {
     setEmail('demo_creator@polygen.ai');
     setPassword('PolyGen2026Secure!');
+    setError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
+    if (!email.trim() || !password) {
       setError('Please provide your email/username and password');
       return;
     }
@@ -42,37 +44,28 @@ export const Login: React.FC = () => {
         password: password,
       });
 
-      const { token, user } = res.data;
-      setToken(token);
-      setUser(user);
+      const { access_token, refresh_token, user } = res.data;
+      setSession(access_token, refresh_token || null, user);
 
       addNotification({
         title: 'Authentication Successful',
-        message: `Welcome back, ${user.username}! Your generative session is active.`,
+        message: `Welcome back, ${user.username}! Your generative studio is active.`,
         type: 'success',
       });
 
       navigate('dashboard');
     } catch (err: any) {
       console.error('Login error:', err);
-      // Fallback for seamless demo experience if backend auth credentials fail:
-      const fallbackUser = {
-        id: 'usr_demo_101',
-        username: email.split('@')[0] || 'polygen_creator',
-        email: email,
-        created_at: new Date().toISOString(),
-      };
-      const demoToken = 'demo_bearer_jwt_token_polygen_2026';
-      setToken(demoToken);
-      setUser(fallbackUser);
-
+      const errorMsg =
+        err.response?.data?.detail ||
+        err.response?.data?.error?.message ||
+        'Authentication failed: incorrect email/username or password.';
+      setError(errorMsg);
       addNotification({
-        title: 'Signed In (Demo Workspace)',
-        message: `Logged in as ${fallbackUser.username}.`,
-        type: 'info',
+        title: 'Sign In Failed',
+        message: errorMsg,
+        type: 'error',
       });
-
-      navigate('dashboard');
     } finally {
       setLoading(false);
     }
@@ -132,10 +125,11 @@ export const Login: React.FC = () => {
               <input
                 type="text"
                 required
+                disabled={loading}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="creator@polygen.ai"
-                className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all disabled:opacity-60"
               />
             </div>
           </div>
@@ -145,10 +139,10 @@ export const Login: React.FC = () => {
               <label className="text-xs font-medium text-slate-300">Password</label>
               <button
                 type="button"
-                onClick={() => addNotification({ title: 'Password Reset', message: 'Demo mode active. Use Auto Fill to sign in.', type: 'info' })}
+                onClick={() => addNotification({ title: 'Password Hint', message: 'Demo credentials: demo_creator@polygen.ai / PolyGen2026Secure!', type: 'info' })}
                 className="text-[11px] text-blue-400 hover:text-blue-300 transition-colors"
               >
-                Forgot password?
+                Need help?
               </button>
             </div>
             <div className="relative">
@@ -156,10 +150,11 @@ export const Login: React.FC = () => {
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
+                disabled={loading}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••••••"
-                className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all disabled:opacity-60"
               />
               <button
                 type="button"
@@ -189,8 +184,17 @@ export const Login: React.FC = () => {
             disabled={loading}
             className="mt-2 w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-blue-500/25 transition-all disabled:opacity-50"
           >
-            <span>{loading ? 'Authenticating...' : 'Sign In'}</span>
-            <ArrowRight className="w-4 h-4" />
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Authenticating...</span>
+              </>
+            ) : (
+              <>
+                <span>Sign In</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </button>
         </form>
 

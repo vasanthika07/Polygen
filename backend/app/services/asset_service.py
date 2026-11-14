@@ -23,7 +23,7 @@ class AssetService:
         offset: int = 0,
         user_id: Optional[str] = None
     ) -> Tuple[List[GeneratedAsset], int]:
-        """Lists assets with pagination. If user_id is provided, filters by owner."""
+        """Lists assets with pagination. If user_id is provided, filters strictly by owner."""
         query = select(GeneratedAsset)
         count_query = select(func.count(GeneratedAsset.id))
 
@@ -48,11 +48,16 @@ class AssetService:
         asset_id: str,
         current_user: Optional[User] = None
     ) -> GeneratedAsset:
-        """Retrieves an asset by ID."""
+        """Retrieves an asset by ID and enforces user ownership authorization."""
         result = await db.execute(select(GeneratedAsset).where(GeneratedAsset.id == asset_id))
         asset = result.scalars().first()
         if not asset:
             raise EntityNotFoundException("GeneratedAsset", asset_id)
+        
+        # Enforce user-level ownership isolation
+        if current_user and asset.user_id and asset.user_id != current_user.id:
+            raise AuthorizationException("You do not have permission to access this 3D asset")
+
         return asset
 
     @classmethod
@@ -62,12 +67,12 @@ class AssetService:
         asset_id: str,
         current_user: Optional[User] = None
     ) -> bool:
-        """Deletes asset record and corresponding storage files."""
+        """Deletes asset record and corresponding storage files after verifying ownership."""
         asset = await cls.get_asset(db, asset_id, current_user)
 
-        # Enforce user ownership if user is authenticated and asset has owner
+        # Enforce user ownership
         if current_user and asset.user_id and asset.user_id != current_user.id:
-            raise AuthorizationException("You do not own this asset and cannot delete it")
+            raise AuthorizationException("You do not have permission to delete this 3D asset")
 
         # Delete physical GLB file if present
         if asset.glb_path and os.path.exists(asset.glb_path):
@@ -88,4 +93,3 @@ class AssetService:
         return True
 
 asset_service = AssetService()
-

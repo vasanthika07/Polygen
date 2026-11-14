@@ -191,8 +191,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
               className="flex items-center gap-2 p-1.5 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-colors"
             >
               <div className="w-7 h-7 rounded-lg bg-blue-600/30 text-blue-400 flex items-center justify-center font-bold text-xs">
-                {user.username.charAt(0).toUpperCase()}
+                {(user.name || user.username).charAt(0).toUpperCase()}
               </div>
+              <span className="hidden md:inline text-xs font-semibold text-slate-200">
+                {user.name || user.username}
+              </span>
             </button>
             <button
               onClick={logout}

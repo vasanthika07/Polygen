@@ -15,7 +15,8 @@ class Settings(BaseSettings):
     # Security & JWT
     SECRET_KEY: str = "polygen-dev-super-secret-key-change-in-production-2026"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 120  # 2 hours
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7     # 7 days
     
     # Database Configuration (PostgreSQL / SQLite)
     # Default to sqlite+aiosqlite for local dev, can be overridden by DATABASE_URL in .env

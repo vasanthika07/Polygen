@@ -6,7 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.core.database import get_db, AsyncSessionLocal
-from app.core.dependencies import get_current_user_optional
+from app.core.dependencies import get_current_user
+from app.core.security import decode_token
 from app.core.websocket_manager import ws_manager
 from app.models.user import User
 from app.models.job import GenerationJob
@@ -34,12 +35,12 @@ def is_redis_available(host: str = "127.0.0.1", port: int = 6379, timeout: float
 async def generate_asset(
     request: GenerationRequest,
     background_tasks: BackgroundTasks,
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Submits a generative text-to-3D synthesis request.
-    Creates a database record and queues an asynchronous generation worker task.
+    Submits a generative text-to-3D synthesis request for the authenticated user.
+    Creates a database record bound to user_id and queues an asynchronous worker task.
     """
     config_payload = {
         "style": request.style,
@@ -49,7 +50,7 @@ async def generate_asset(
     }
 
     job = GenerationJob(
-        user_id=current_user.id if current_user else None,
+        user_id=current_user.id,
         prompt=request.prompt,
         configuration=config_payload,
         status="queued",
@@ -75,12 +76,12 @@ async def generate_asset(
                 target_format=request.target_format,
             )
             dispatched_to_celery = True
-            logger.info(f"Job {job.id} dispatched to Celery worker via Redis.")
+            logger.info(f"Job {job.id} dispatched to Celery worker for user {current_user.id}")
         except Exception as e:
             logger.warning(f"Failed to enqueue to Celery ({e}). Falling back to background tasks.")
 
     if not dispatched_to_celery:
-        logger.info(f"Executing job {job.id} asynchronously via background task runner.")
+        logger.info(f"Executing job {job.id} asynchronously for user {current_user.id} via background task runner.")
         background_tasks.add_task(
             pipeline_orchestrator.run_pipeline,
             job_id=job.id,
@@ -97,14 +98,17 @@ async def generate_asset(
 async def list_jobs(
     limit: int = 50,
     offset: int = 0,
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Lists generation jobs ordered by creation timestamp."""
-    query = select(GenerationJob)
-    if current_user:
-        query = query.where(GenerationJob.user_id == current_user.id)
-    query = query.order_by(GenerationJob.created_at.desc()).offset(offset).limit(limit)
+    """Lists generation jobs owned by the authenticated user, ordered by creation timestamp."""
+    query = (
+        select(GenerationJob)
+        .where(GenerationJob.user_id == current_user.id)
+        .order_by(GenerationJob.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
 
     result = await db.execute(query)
     jobs = result.scalars().all()
@@ -117,13 +121,26 @@ async def list_jobs(
     return responses
 
 @router.get("/jobs/{job_id}", response_model=JobStatusResponse)
-async def get_job_status(job_id: str, db: AsyncSession = Depends(get_db)):
-    """Retrieves real-time status and stage progress for a generation job."""
+async def get_job_status(
+    job_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retrieves real-time status and stage progress for a generation job.
+    Enforces user ownership check.
+    """
     result = await db.execute(select(GenerationJob).where(GenerationJob.id == job_id))
     job = result.scalars().first()
     if not job:
         raise HTTPException(status_code=404, detail=f"Generation job '{job_id}' not found")
     
+    if job.user_id and job.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this generation job"
+        )
+
     asset_result = await db.execute(select(GeneratedAsset).where(GeneratedAsset.job_id == job_id))
     asset = asset_result.scalars().first()
     asset_id = asset.id if asset else None

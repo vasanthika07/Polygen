@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { useStore } from './store/useStore';
+import { useStore, type AppRoute } from './store/useStore';
 import { authApi, assetApi } from './services/api';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { NotificationToast } from './components/NotificationToast';
 import { AuthModal } from './components/AuthModal';
+import { Box, Loader2 } from 'lucide-react';
 
 // All 12 required Pages
 import { Landing } from './pages/Landing';
@@ -21,42 +22,101 @@ import { UserSettings } from './pages/UserSettings';
 import { NotFound } from './pages/NotFound';
 import { ErrorPage } from './pages/ErrorPage';
 
+const PROTECTED_ROUTES: AppRoute[] = [
+  'dashboard',
+  'generate',
+  'workspace',
+  'viewer',
+  'library',
+  'history',
+  'asset-details',
+  'settings',
+];
+
 export const App: React.FC = () => {
   const { 
     currentRoute, 
+    navigate,
     sidebarCollapsed, 
+    user,
     setUser, 
     setAssets, 
-    setActiveAsset 
+    setActiveAsset,
+    isAuthChecking,
+    setIsAuthChecking,
+    logout,
+    addNotification
   } = useStore();
 
   const [isAuthOpen, setIsAuthOpen] = useState(false);
 
+  // 1. Session initialization on mount
   useEffect(() => {
-    // 1. Restore authenticated user profile if token exists
     const token = localStorage.getItem('polygen_token');
     if (token) {
+      setIsAuthChecking(true);
       authApi.me()
-        .then((res) => setUser(res.data))
-        .catch(() => {
-          localStorage.removeItem('polygen_token');
-          setUser(null);
+        .then((res) => {
+          setUser(res.data);
+          // Prefetch user's personal generated assets
+          return assetApi.listAssets();
+        })
+        .then((res) => {
+          if (res?.data?.items) {
+            setAssets(res.data.items);
+            if (res.data.items.length > 0) {
+              setActiveAsset(res.data.items[0]);
+            }
+          }
+        })
+        .catch((err) => {
+          console.warn('Session verification failed on mount:', err);
+          logout();
+        })
+        .finally(() => {
+          setIsAuthChecking(false);
         });
+    } else {
+      setIsAuthChecking(false);
     }
-
-    // 2. Fetch existing generated assets
-    assetApi.listAssets()
-      .then((res) => {
-        setAssets(res.data.items);
-        if (res.data.items.length > 0) {
-          setActiveAsset(res.data.items[0]);
-        }
-      })
-      .catch((err) => console.error('Failed to prefetch assets:', err));
   }, []);
 
-  // Full-width pages that hide sidebar (Landing, Login, Register)
-  const isFullBleedPage = currentRoute === 'landing';
+  // 2. Protected Route Guard
+  useEffect(() => {
+    if (isAuthChecking) return;
+
+    const token = localStorage.getItem('polygen_token');
+    const isAuthenticated = !!user || !!token;
+
+    if (PROTECTED_ROUTES.includes(currentRoute) && !isAuthenticated) {
+      addNotification({
+        title: 'Authentication Required',
+        message: 'Please sign in to access your generative 3D studio.',
+        type: 'warning',
+      });
+      navigate('login');
+    } else if ((currentRoute === 'login' || currentRoute === 'register') && isAuthenticated) {
+      navigate('dashboard');
+    }
+  }, [currentRoute, user, isAuthChecking]);
+
+  // Full-width pages that hide sidebar
+  const isFullBleedPage = currentRoute === 'landing' || currentRoute === 'login' || currentRoute === 'register';
+
+  if (isAuthChecking && localStorage.getItem('polygen_token')) {
+    return (
+      <div className="min-h-screen bg-[#070a13] flex flex-col items-center justify-center text-slate-200">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 flex items-center justify-center text-white mb-4 shadow-xl shadow-blue-500/25 animate-pulse">
+          <Box className="w-7 h-7" />
+        </div>
+        <div className="flex items-center gap-2 text-sm font-semibold tracking-wide text-slate-100">
+          <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+          <span>Restoring PolyGen Studio Session...</span>
+        </div>
+        <p className="text-xs text-slate-500 mt-1">Verifying cryptographic authentication tokens</p>
+      </div>
+    );
+  }
 
   const renderActiveRoute = () => {
     switch (currentRoute) {
@@ -93,7 +153,7 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#070a13] text-slate-100 flex font-sans selection:bg-blue-500/30 selection:text-blue-200">
-      {/* Collapsible Professional Sidebar (hidden on public Landing) */}
+      {/* Collapsible Professional Sidebar (hidden on public/auth pages) */}
       {!isFullBleedPage && <Sidebar />}
 
       {/* Main Content Area */}
@@ -107,7 +167,7 @@ export const App: React.FC = () => {
         }`}
       >
         {/* Top Header with Breadcrumbs, Search, Engine Pill, Notifications */}
-        <Header onOpenAuth={() => setIsAuthOpen(true)} />
+        {!isFullBleedPage && <Header onOpenAuth={() => setIsAuthOpen(true)} />}
 
         {/* Dynamic Route View */}
         <main className="flex-1 w-full pb-12">

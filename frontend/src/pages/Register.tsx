@@ -8,30 +8,38 @@ import {
   User as UserIcon,
   ArrowRight,
   AlertCircle,
-  Building,
   Eye,
-  EyeOff
+  EyeOff,
+  Loader2,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 
 export const Register: React.FC = () => {
-  const { navigate, setUser, setToken, addNotification } = useStore();
+  const { navigate, setSession, addNotification } = useStore();
+  const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [studioName, setStudioName] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Simple password strength calculation
+  // Password requirements check
+  const hasMinLength = password.length >= 8;
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasNumberOrSymbol = /[0-9\W]/.test(password);
+  const passwordsMatch = password.length > 0 && password === confirmPassword;
+
   const getPasswordStrength = () => {
-    if (!password) return 0;
     let score = 0;
-    if (password.length >= 8) score += 25;
-    if (/[A-Z]/.test(password)) score += 25;
-    if (/[0-9]/.test(password)) score += 25;
-    if (/[^A-Za-z0-9]/.test(password)) score += 25;
+    if (hasMinLength) score += 25;
+    if (hasUpperCase) score += 25;
+    if (hasLowerCase) score += 25;
+    if (hasNumberOrSymbol) score += 25;
     return score;
   };
 
@@ -39,56 +47,79 @@ export const Register: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username || !email || !password) {
+    setError(null);
+
+    // Validation checks
+    const trimmedUsername = username.trim();
+    const trimmedEmail = email.trim();
+
+    if (!trimmedUsername || !trimmedEmail || !password) {
       setError('Please fill in all required fields');
       return;
     }
+
+    if (trimmedUsername.length < 3) {
+      setError('Username must be at least 3 characters long');
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_-]+$/.test(trimmedUsername)) {
+      setError('Username can only contain letters, numbers, underscores, and hyphens');
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError('Please provide a valid email address');
+      return;
+    }
+
+    if (strength < 100) {
+      setError('Password must be at least 8 characters and include uppercase, lowercase, and a number or symbol');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
     if (!agreeTerms) {
       setError('Please accept the Terms of Service to continue');
       return;
     }
 
     setLoading(true);
-    setError(null);
 
     try {
       const res = await authApi.register({
-        username: username.trim(),
-        email: email.trim(),
+        name: name.trim() || undefined,
+        username: trimmedUsername,
+        email: trimmedEmail,
         password: password,
       });
 
-      const { token, user } = res.data;
-      setToken(token);
-      setUser(user);
+      const { access_token, refresh_token, user } = res.data;
+      setSession(access_token, refresh_token || null, user);
 
       addNotification({
         title: 'Account Created',
-        message: `Welcome to PolyGen, ${user.username}! Your generative studio is ready.`,
+        message: `Welcome to PolyGen, ${user.username}! Your generative studio is active.`,
         type: 'success',
       });
 
       navigate('dashboard');
     } catch (err: any) {
       console.error('Registration failed:', err);
-      // Fallback local registration for seamless experience
-      const localUser = {
-        id: `usr_${Date.now()}`,
-        username: username.trim(),
-        email: email.trim(),
-        created_at: new Date().toISOString(),
-      };
-      const localToken = 'local_jwt_polygen_token';
-      setToken(localToken);
-      setUser(localUser);
-
+      const errorMsg =
+        err.response?.data?.detail ||
+        err.response?.data?.error?.message ||
+        'Registration failed. Please check your information.';
+      setError(errorMsg);
       addNotification({
-        title: 'Welcome to PolyGen',
-        message: `Account created for ${localUser.username}.`,
-        type: 'success',
+        title: 'Registration Error',
+        message: errorMsg,
+        type: 'error',
       });
-
-      navigate('dashboard');
     } finally {
       setLoading(false);
     }
@@ -101,7 +132,7 @@ export const Register: React.FC = () => {
         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Brand Header */}
-        <div className="flex flex-col items-center text-center mb-8">
+        <div className="flex flex-col items-center text-center mb-6">
           <div
             onClick={() => navigate('landing')}
             className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-xl shadow-blue-500/25 mb-4 cursor-pointer hover:scale-105 transition-transform"
@@ -116,16 +147,33 @@ export const Register: React.FC = () => {
 
         {/* Error Alert */}
         {error && (
-          <div className="p-3 mb-6 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-2 text-xs text-rose-400">
+          <div className="p-3 mb-5 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-2 text-xs text-rose-400">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
           <div>
-            <label className="text-xs font-medium text-slate-300 block mb-1.5">
+            <label className="text-xs font-medium text-slate-300 block mb-1">
+              Full / Display Name (Optional)
+            </label>
+            <div className="relative">
+              <UserIcon className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                disabled={loading}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Alex Mercer"
+                className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all disabled:opacity-60"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-slate-300 block mb-1">
               Username <span className="text-rose-400">*</span>
             </label>
             <div className="relative">
@@ -133,16 +181,17 @@ export const Register: React.FC = () => {
               <input
                 type="text"
                 required
+                disabled={loading}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="mesh_architect"
-                className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all disabled:opacity-60"
               />
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-medium text-slate-300 block mb-1.5">
+            <label className="text-xs font-medium text-slate-300 block mb-1">
               Email Address <span className="text-rose-400">*</span>
             </label>
             <div className="relative">
@@ -150,32 +199,17 @@ export const Register: React.FC = () => {
               <input
                 type="email"
                 required
+                disabled={loading}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="creator@studio.com"
-                className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all disabled:opacity-60"
               />
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-medium text-slate-300 block mb-1.5">
-              Game Studio / Organization (Optional)
-            </label>
-            <div className="relative">
-              <Building className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={studioName}
-                onChange={(e) => setStudioName(e.target.value)}
-                placeholder="Indie Game Studio"
-                className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-slate-300 block mb-1.5">
+            <label className="text-xs font-medium text-slate-300 block mb-1">
               Password <span className="text-rose-400">*</span>
             </label>
             <div className="relative">
@@ -183,10 +217,11 @@ export const Register: React.FC = () => {
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
+                disabled={loading}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••••"
-                className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                placeholder="At least 8 chars (A-Z, a-z, 0-9)"
+                className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-10 pr-10 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all disabled:opacity-60"
               />
               <button
                 type="button"
@@ -197,28 +232,66 @@ export const Register: React.FC = () => {
               </button>
             </div>
 
-            {/* Password strength progress bar */}
+            {/* Password strength checklist */}
             {password && (
-              <div className="mt-2 space-y-1">
+              <div className="mt-2 space-y-1.5 p-2.5 bg-slate-950/60 rounded-xl border border-slate-800/60 text-[10px]">
                 <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
                   <div
-                    className={`h-full transition-all duration-300 ${strength <= 25
+                    className={`h-full transition-all duration-300 ${
+                      strength <= 25
                         ? 'bg-rose-500 w-1/4'
                         : strength <= 50
-                          ? 'bg-amber-500 w-2/4'
-                          : strength <= 75
-                            ? 'bg-blue-500 w-3/4'
-                            : 'bg-emerald-500 w-full'
-                      }`}
+                        ? 'bg-amber-500 w-2/4'
+                        : strength <= 75
+                        ? 'bg-blue-500 w-3/4'
+                        : 'bg-emerald-500 w-full'
+                    }`}
                   />
                 </div>
-                <div className="flex justify-between text-[10px] text-slate-400">
-                  <span>Security strength</span>
-                  <span className="font-semibold text-slate-300">
-                    {strength <= 25 ? 'Weak' : strength <= 50 ? 'Fair' : strength <= 75 ? 'Good' : 'Strong'}
+                <div className="grid grid-cols-2 gap-1 text-slate-400 pt-0.5">
+                  <span className={`flex items-center gap-1 ${hasMinLength ? 'text-emerald-400' : 'text-slate-500'}`}>
+                    {hasMinLength ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                    8+ characters
+                  </span>
+                  <span className={`flex items-center gap-1 ${hasUpperCase ? 'text-emerald-400' : 'text-slate-500'}`}>
+                    {hasUpperCase ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                    Uppercase (A-Z)
+                  </span>
+                  <span className={`flex items-center gap-1 ${hasLowerCase ? 'text-emerald-400' : 'text-slate-500'}`}>
+                    {hasLowerCase ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                    Lowercase (a-z)
+                  </span>
+                  <span className={`flex items-center gap-1 ${hasNumberOrSymbol ? 'text-emerald-400' : 'text-slate-500'}`}>
+                    {hasNumberOrSymbol ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                    Number or symbol
                   </span>
                 </div>
               </div>
+            )}
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-slate-300 block mb-1">
+              Confirm Password <span className="text-rose-400">*</span>
+            </label>
+            <div className="relative">
+              <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                disabled={loading}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Repeat password"
+                className={`w-full bg-slate-950/80 border rounded-xl pl-10 pr-4 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none transition-all disabled:opacity-60 ${
+                  confirmPassword && !passwordsMatch
+                    ? 'border-rose-500 focus:border-rose-500'
+                    : 'border-slate-800 focus:border-blue-500'
+                }`}
+              />
+            </div>
+            {confirmPassword && !passwordsMatch && (
+              <span className="text-[10px] text-rose-400 mt-1 block">Passwords do not match</span>
             )}
           </div>
 
@@ -240,13 +313,22 @@ export const Register: React.FC = () => {
             disabled={loading}
             className="mt-2 w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-blue-500/25 transition-all disabled:opacity-50"
           >
-            <span>{loading ? 'Registering Studio...' : 'Create Account'}</span>
-            <ArrowRight className="w-4 h-4" />
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Registering Studio Account...</span>
+              </>
+            ) : (
+              <>
+                <span>Create Account</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </button>
         </form>
 
         {/* Footer Link */}
-        <div className="mt-6 pt-6 border-t border-slate-800/80 text-center text-xs text-slate-400">
+        <div className="mt-5 pt-5 border-t border-slate-800/80 text-center text-xs text-slate-400">
           Already have an account?{' '}
           <button
             onClick={() => navigate('login')}

@@ -55,8 +55,14 @@ interface AppState {
   // Authentication
   user: User | null;
   token: string | null;
+  refreshToken: string | null;
+  isAuthChecking: boolean;
   setUser: (user: User | null) => void;
   setToken: (token: string | null) => void;
+  setRefreshToken: (refreshToken: string | null) => void;
+  setIsAuthChecking: (checking: boolean) => void;
+  setSession: (token: string, refreshToken: string | null, user: User) => void;
+  updateUser: (partial: Partial<User>) => void;
   logout: () => void;
 
   // Active Generation Job & Real-time Progress
@@ -137,15 +143,43 @@ export const useStore = create<AppState>((set, get) => ({
   // Authentication
   user: null,
   token: localStorage.getItem('polygen_token'),
+  refreshToken: localStorage.getItem('polygen_refresh_token'),
+  isAuthChecking: !!localStorage.getItem('polygen_token'),
   setUser: (user) => set({ user }),
   setToken: (token) => {
     if (token) localStorage.setItem('polygen_token', token);
     else localStorage.removeItem('polygen_token');
     set({ token });
   },
+  setRefreshToken: (refreshToken) => {
+    if (refreshToken) localStorage.setItem('polygen_refresh_token', refreshToken);
+    else localStorage.removeItem('polygen_refresh_token');
+    set({ refreshToken });
+  },
+  setIsAuthChecking: (isAuthChecking) => set({ isAuthChecking }),
+  setSession: (token, refreshToken, user) => {
+    localStorage.setItem('polygen_token', token);
+    if (refreshToken) {
+      localStorage.setItem('polygen_refresh_token', refreshToken);
+    }
+    set({ token, refreshToken, user, isAuthChecking: false });
+  },
+  updateUser: (partial) =>
+    set((state) => ({
+      user: state.user ? { ...state.user, ...partial } : null,
+    })),
   logout: () => {
     localStorage.removeItem('polygen_token');
-    set({ user: null, token: null, currentRoute: 'landing' });
+    localStorage.removeItem('polygen_refresh_token');
+    set({
+      user: null,
+      token: null,
+      refreshToken: null,
+      assets: [],
+      jobs: [],
+      activeAsset: null,
+      currentRoute: 'login',
+    });
   },
 
   // Active Job State
