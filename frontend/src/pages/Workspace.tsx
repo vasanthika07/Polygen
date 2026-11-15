@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
-import { generationApi } from '../services/api';
+import { generationApi, promptApi, type PromptSpecification } from '../services/api';
 import { JobWebSocket } from '../services/websocket';
 import { ModelViewer } from '../components/ModelViewer';
+import { PromptAnalysisView } from '../components/PromptAnalysisView';
 import { 
   Wand2, 
   Sparkles, 
@@ -12,7 +13,8 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Loader2, 
-  Box
+  Box,
+  BrainCircuit
 } from 'lucide-react';
 
 const PRESET_PROMPTS = [
@@ -56,6 +58,41 @@ export const Workspace: React.FC = () => {
   const [quality, setQuality] = useState(settings.defaultQuality || 'high');
   const [polygonBudget, setPolygonBudget] = useState(settings.defaultPolygonBudget || 10000);
   const [textureResolution, setTextureResolution] = useState(settings.defaultTextureResolution || 1024);
+
+  // Natural Language Prompt Understanding State
+  const [analyzedSpec, setAnalyzedSpec] = useState<PromptSpecification | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showAnalysis, setShowAnalysis] = useState(false);
+
+  const handleAnalyzePrompt = async () => {
+    if (!prompt.trim() || prompt.trim().length < 3) return;
+    setIsAnalyzing(true);
+    setShowAnalysis(true);
+
+    try {
+      const res = await promptApi.analyze({
+        prompt: prompt.trim(),
+        style_override: style !== 'auto' ? style : undefined,
+        quality,
+        polygon_budget: polygonBudget,
+      });
+      setAnalyzedSpec(res.data);
+      addNotification({
+        title: 'Prompt Specification Analyzed',
+        message: `Identified "${res.data.object}" with ${res.data.materials.length} materials and ${res.data.style} style.`,
+        type: 'info',
+      });
+    } catch (err: any) {
+      console.error('Prompt analysis failed:', err);
+      addNotification({
+        title: 'Prompt Analysis Failed',
+        message: err.response?.data?.detail || 'Could not parse prompt.',
+        type: 'error',
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   const handleGenerate = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -211,21 +248,46 @@ export const Workspace: React.FC = () => {
                 placeholder="Describe your 3D asset in detail (e.g., A rusted medieval broadsword with a glowing blue sapphire in the hilt...)"
               />
 
-              {/* Preset Chips */}
-              <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                <span className="text-[11px] text-slate-500 font-medium">Presets:</span>
-                {PRESET_PROMPTS.map((p, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setPrompt(p)}
-                    disabled={isGenerating}
-                    className="text-[10px] px-2.5 py-1 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 rounded-lg transition-colors truncate max-w-[200px]"
-                    title={p}
-                  >
-                    Preset {idx + 1}
-                  </button>
-                ))}
+              {/* Preset Chips & Analyze Action */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] text-slate-500 font-medium">Presets:</span>
+                  {PRESET_PROMPTS.map((p, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setPrompt(p);
+                        setShowAnalysis(false);
+                      }}
+                      disabled={isGenerating}
+                      className="text-[10px] px-2.5 py-1 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 rounded-lg transition-colors truncate max-w-[140px]"
+                      title={p}
+                    >
+                      Preset {idx + 1}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAnalyzePrompt}
+                  disabled={isAnalyzing || isGenerating || !prompt.trim()}
+                  className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 shrink-0 self-start sm:self-auto"
+                  title="Parse natural language into structured 3D specifications"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Analyzing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <BrainCircuit className="w-3.5 h-3.5" />
+                      <span>Analyze Prompt</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
 
@@ -335,6 +397,16 @@ export const Workspace: React.FC = () => {
               )}
             </button>
           </div>
+
+          {/* Natural Language Prompt Understanding Preview Interface */}
+          {(showAnalysis || isAnalyzing || analyzedSpec) && (
+            <PromptAnalysisView
+              spec={analyzedSpec}
+              isLoading={isAnalyzing}
+              onApplyStyle={(newStyle) => setStyle(newStyle)}
+              onClose={() => setShowAnalysis(false)}
+            />
+          )}
 
           {/* Real-time 8-Stage Progress Tracker */}
           {(isGenerating || generationStage !== 'idle') && (

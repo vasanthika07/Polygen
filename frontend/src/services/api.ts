@@ -208,6 +208,45 @@ export const assetApi = {
   },
 };
 
+export interface PromptSpecification {
+  object: string;
+  style: string;
+  materials: string[];
+  colors: string[];
+  surface_details: string[];
+  lighting: string;
+  special_effects: string[];
+  geometry_requirements: string[];
+  texture_requirements: string[];
+  negative_prompt: string[];
+  category?: string;
+  shape_and_geometry?: {
+    primary_shape: string;
+    symmetry: string;
+    proportions: string;
+    topology: string;
+  };
+  model_prompts?: {
+    shap_e: string;
+    hunyuan3d: string;
+    stable_diffusion: string;
+    triposr: string;
+  };
+  inferred_details?: string[];
+  confidence: number;
+  raw_prompt?: string;
+}
+
+export const promptApi = {
+  analyze: (data: {
+    prompt: string;
+    style_override?: string;
+    quality?: string;
+    polygon_budget?: number;
+    target_format?: string;
+  }) => api.post<PromptSpecification>('/prompt/analyze', data),
+};
+
 export const healthApi = {
   check: () => api.get('/health'),
 };
