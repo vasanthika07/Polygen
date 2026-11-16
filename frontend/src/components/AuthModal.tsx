@@ -22,12 +22,44 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    const cleanUsername = username.trim();
+    const cleanEmail = email.trim();
+
+    if (!isLogin) {
+      if (password.length < 8) {
+        setError('Password must be at least 8 characters long');
+        return;
+      }
+      if (!/[A-Z]/.test(password)) {
+        setError('Password must contain at least one uppercase letter (A-Z)');
+        return;
+      }
+      if (!/[a-z]/.test(password)) {
+        setError('Password must contain at least one lowercase letter (a-z)');
+        return;
+      }
+      if (!/[0-9\W]/.test(password)) {
+        setError('Password must contain at least one digit or special symbol');
+        return;
+      }
+    } else {
+      if (!cleanUsername) {
+        setError('Please enter your username or email');
+        return;
+      }
+      if (!password) {
+        setError('Please enter your password');
+        return;
+      }
+    }
+
     setIsLoading(true);
 
     try {
       if (isLogin) {
         const res = await authApi.login({
-          username_or_email: username,
+          username_or_email: cleanUsername,
           password,
         });
         setSession(res.data.access_token, res.data.refresh_token || null, res.data.user);
@@ -38,8 +70,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         });
       } else {
         const res = await authApi.register({
-          username,
-          email,
+          username: cleanUsername,
+          email: cleanEmail,
           password,
         });
         setSession(res.data.access_token, res.data.refresh_token || null, res.data.user);

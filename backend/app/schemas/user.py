@@ -7,6 +7,8 @@ def validate_password_complexity(password: str) -> str:
     """Validates that a password satisfies security complexity criteria."""
     if len(password) < 8:
         raise ValueError("Password must be at least 8 characters long")
+    if len(password) > 128:
+        raise ValueError("Password must not exceed 128 characters")
     if not re.search(r"[A-Z]", password):
         raise ValueError("Password must contain at least one uppercase letter (A-Z)")
     if not re.search(r"[a-z]", password):
@@ -19,7 +21,7 @@ class UserRegister(BaseModel):
     name: Optional[str] = Field(None, max_length=128, description="Display name of user")
     username: Optional[str] = Field(None, min_length=3, max_length=64, description="Unique username")
     email: EmailStr = Field(..., description="User email address")
-    password: str = Field(..., description="Password (at least 8 chars with uppercase, lowercase, digit/symbol)")
+    password: str = Field(..., max_length=128, description="Password (at least 8 chars with uppercase, lowercase, digit/symbol)")
 
     @field_validator("password")
     @classmethod
@@ -36,8 +38,13 @@ class UserRegister(BaseModel):
         return v
 
 class UserLogin(BaseModel):
-    username_or_email: str = Field(..., min_length=1, description="Username or email address")
-    password: str = Field(..., min_length=1, description="Account password")
+    username_or_email: str = Field(..., min_length=1, max_length=255, description="Username or email address")
+    password: str = Field(..., min_length=1, max_length=128, description="Account password")
+
+    @field_validator("username_or_email")
+    @classmethod
+    def trim_username_or_email(cls, v: str) -> str:
+        return v.strip()
 
 class UserUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=128, description="Updated display name")

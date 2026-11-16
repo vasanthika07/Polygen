@@ -104,6 +104,18 @@ export const UserSettings: React.FC = () => {
       setPasswordError('New password must be at least 8 characters long');
       return;
     }
+    if (!/[A-Z]/.test(newPassword)) {
+      setPasswordError('New password must contain at least one uppercase letter (A-Z)');
+      return;
+    }
+    if (!/[a-z]/.test(newPassword)) {
+      setPasswordError('New password must contain at least one lowercase letter (a-z)');
+      return;
+    }
+    if (!/[0-9\W]/.test(newPassword)) {
+      setPasswordError('New password must contain at least one digit (0-9) or symbol');
+      return;
+    }
     if (newPassword !== confirmNewPassword) {
       setPasswordError('New passwords do not match');
       return;
@@ -344,6 +356,10 @@ export const UserSettings: React.FC = () => {
                 />
               </div>
             </div>
+
+            <p className="text-[10px] text-slate-500">
+              Security requirements: Minimum 8 characters including at least one uppercase letter (A-Z), one lowercase letter (a-z), and one number or special symbol.
+            </p>
 
             <div className="flex justify-end pt-1">
               <button

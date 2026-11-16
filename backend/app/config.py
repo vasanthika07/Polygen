@@ -24,6 +24,14 @@ class Settings(BaseSettings):
         default="sqlite+aiosqlite:///./polygen.db",
         description="Async database connection string. e.g. postgresql+asyncpg://polygen:polygen@localhost:5432/polygen"
     )
+
+    @property
+    def RESOLVED_DATABASE_URL(self) -> str:
+        """Returns normalized absolute path for SQLite to avoid multi-db divergence."""
+        if "sqlite" in self.DATABASE_URL and ("./" in self.DATABASE_URL or not os.path.isabs(self.DATABASE_URL.replace("sqlite+aiosqlite:///", ""))):
+            db_abs = os.path.abspath(os.path.join(self.BASE_DIR, "polygen.db")).replace("\\", "/")
+            return f"sqlite+aiosqlite:///{db_abs}"
+        return self.DATABASE_URL
     POSTGRES_SERVER: Optional[str] = "localhost"
     POSTGRES_USER: Optional[str] = "postgres"
     POSTGRES_PASSWORD: Optional[str] = "postgres"
@@ -31,7 +39,7 @@ class Settings(BaseSettings):
     POSTGRES_PORT: Optional[int] = 5432
     
     # Storage Configuration
-    BASE_DIR: str = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
+    BASE_DIR: str = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
     STORAGE_DIR: str = os.path.join(BASE_DIR, "storage")
     STORAGE_RAW_DIR: str = os.path.join(STORAGE_DIR, "raw_meshes")
     STORAGE_PROCESSED_DIR: str = os.path.join(STORAGE_DIR, "processed_meshes")

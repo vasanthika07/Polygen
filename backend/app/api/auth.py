@@ -2,6 +2,7 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import func
 
 from app.core.database import get_db
 from app.core.security import (
@@ -29,16 +30,20 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
 async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)):
     """Registers a new user account with validated credentials and returns session tokens."""
-    username = user_in.username or user_in.email.split("@")[0]
-    name = user_in.name or username
+    email_clean = user_in.email.strip().lower()
+    username_clean = (user_in.username or email_clean.split("@")[0]).strip()
+    name_clean = (user_in.name or username_clean).strip()
 
-    # Check if username or email already registered
+    # Check if username or email already registered (case-insensitive)
     result = await db.execute(
-        select(User).where((User.username == username) | (User.email == user_in.email))
+        select(User).where(
+            (func.lower(User.username) == username_clean.lower()) | 
+            (func.lower(User.email) == email_clean)
+        )
     )
     existing_user = result.scalars().first()
     if existing_user:
-        if existing_user.email == user_in.email:
+        if existing_user.email.lower() == email_clean:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email address is already registered"
@@ -51,9 +56,9 @@ async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)):
     
     hashed_pwd = get_password_hash(user_in.password)
     user = User(
-        name=name,
-        username=username,
-        email=user_in.email,
+        name=name_clean,
+        username=username_clean,
+        email=email_clean,
         password_hash=hashed_pwd,
     )
     db.add(user)
@@ -77,10 +82,11 @@ async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)):
 @router.post("/login", response_model=Token)
 async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
     """Authenticates credentials and returns JWT access and refresh tokens."""
+    clean_identifier = credentials.username_or_email.strip()
     result = await db.execute(
         select(User).where(
-            (User.username == credentials.username_or_email) | 
-            (User.email == credentials.username_or_email)
+            (func.lower(User.username) == clean_identifier.lower()) | 
+            (func.lower(User.email) == clean_identifier.lower())
         )
     )
     user = result.scalars().first()
@@ -170,17 +176,19 @@ async def update_profile(
     db: AsyncSession = Depends(get_db)
 ):
     """Updates profile attributes (name, email) for authenticated user."""
-    if user_update.email and user_update.email != current_user.email:
-        # Verify new email is not taken by another user
-        res = await db.execute(
-            select(User).where((User.email == user_update.email) & (User.id != current_user.id))
-        )
-        if res.scalars().first():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email address is already in use by another account"
+    if user_update.email:
+        clean_new_email = user_update.email.strip().lower()
+        if clean_new_email != current_user.email.lower():
+            # Verify new email is not taken by another user
+            res = await db.execute(
+                select(User).where((func.lower(User.email) == clean_new_email) & (User.id != current_user.id))
             )
-        current_user.email = user_update.email
+            if res.scalars().first():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email address is already in use by another account"
+                )
+            current_user.email = clean_new_email
 
     if user_update.name is not None:
         current_user.name = user_update.name.strip()

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { authApi } from '../services/api';
 import { 
@@ -10,7 +10,8 @@ import {
   Eye, 
   EyeOff, 
   Sparkles,
-  Loader2
+  Loader2,
+  ShieldCheck
 } from 'lucide-react';
 
 export const Login: React.FC = () => {
@@ -22,6 +23,15 @@ export const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Restore remembered login on mount
+  useEffect(() => {
+    const remembered = localStorage.getItem('polygen_remembered_login');
+    if (remembered) {
+      setEmail(remembered);
+      setRememberMe(true);
+    }
+  }, []);
+
   const handleFillDemo = () => {
     setEmail('demo_creator@polygen.ai');
     setPassword('PolyGen2026Secure!');
@@ -30,8 +40,20 @@ export const Login: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password) {
-      setError('Please provide your email/username and password');
+    const cleanIdentifier = email.trim();
+
+    if (!cleanIdentifier) {
+      setError('Please provide your email address or username.');
+      return;
+    }
+
+    if (!password) {
+      setError('Please enter your account password.');
+      return;
+    }
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long and satisfy security requirements.');
       return;
     }
 
@@ -40,12 +62,19 @@ export const Login: React.FC = () => {
 
     try {
       const res = await authApi.login({
-        username_or_email: email.trim(),
+        username_or_email: cleanIdentifier,
         password: password,
       });
 
       const { access_token, refresh_token, user } = res.data;
       setSession(access_token, refresh_token || null, user);
+
+      // Handle remember me
+      if (rememberMe) {
+        localStorage.setItem('polygen_remembered_login', cleanIdentifier);
+      } else {
+        localStorage.removeItem('polygen_remembered_login');
+      }
 
       addNotification({
         title: 'Authentication Successful',
@@ -59,7 +88,7 @@ export const Login: React.FC = () => {
       const errorMsg =
         err.response?.data?.detail ||
         err.response?.data?.error?.message ||
-        'Authentication failed: incorrect email/username or password.';
+        'Authentication failed: incorrect email/username or password. Please verify credentials or use the demo account.';
       setError(errorMsg);
       addNotification({
         title: 'Sign In Failed',
@@ -78,7 +107,7 @@ export const Login: React.FC = () => {
         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Brand Header */}
-        <div className="flex flex-col items-center text-center mb-8">
+        <div className="flex flex-col items-center text-center mb-6">
           <div 
             onClick={() => navigate('landing')}
             className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-xl shadow-blue-500/25 mb-4 cursor-pointer hover:scale-105 transition-transform"
@@ -91,11 +120,22 @@ export const Login: React.FC = () => {
           </p>
         </div>
 
+        {/* Security / Backend Storage Info Badge */}
+        <div className="mb-5 p-2.5 bg-slate-950/70 border border-slate-800/80 rounded-xl flex items-center gap-2.5 text-[11px] text-slate-400">
+          <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>
+            Secure backend authentication with salted bcrypt hashing & JWT sessions.
+          </span>
+        </div>
+
         {/* Demo Credentials Quick Fill Banner */}
-        <div className="p-3 mb-6 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-center justify-between gap-3 text-xs">
+        <div className="p-3 mb-5 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2 text-blue-300">
             <Sparkles className="w-4 h-4 shrink-0 text-blue-400" />
-            <span>Try demo account instantly</span>
+            <div>
+              <span className="font-semibold">Demo Account</span>
+              <span className="block text-[10px] text-blue-400/80">demo_creator@polygen.ai</span>
+            </div>
           </div>
           <button
             type="button"
@@ -108,7 +148,7 @@ export const Login: React.FC = () => {
 
         {/* Error Alert */}
         {error && (
-          <div className="p-3 mb-6 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-2 text-xs text-rose-400">
+          <div className="p-3 mb-5 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-2 text-xs text-rose-400">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -128,7 +168,7 @@ export const Login: React.FC = () => {
                 disabled={loading}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="creator@polygen.ai"
+                placeholder="creator@polygen.ai or username"
                 className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all disabled:opacity-60"
               />
             </div>
@@ -139,10 +179,10 @@ export const Login: React.FC = () => {
               <label className="text-xs font-medium text-slate-300">Password</label>
               <button
                 type="button"
-                onClick={() => addNotification({ title: 'Password Hint', message: 'Demo credentials: demo_creator@polygen.ai / PolyGen2026Secure!', type: 'info' })}
+                onClick={() => addNotification({ title: 'Password Requirements', message: 'Minimum 8 characters with at least one uppercase letter (A-Z), lowercase letter (a-z), and number or symbol.', type: 'info' })}
                 className="text-[11px] text-blue-400 hover:text-blue-300 transition-colors"
               >
-                Need help?
+                Requirements
               </button>
             </div>
             <div className="relative">
@@ -164,6 +204,9 @@ export const Login: React.FC = () => {
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+            <p className="text-[10px] text-slate-500 mt-1">
+              Minimum 8 characters (requires A-Z, a-z, and 0-9 or symbol)
+            </p>
           </div>
 
           <div className="flex items-center gap-2 mt-1">
@@ -175,7 +218,7 @@ export const Login: React.FC = () => {
               className="rounded bg-slate-950 border-slate-800 text-blue-600 focus:ring-0"
             />
             <label htmlFor="remember" className="text-xs text-slate-400 cursor-pointer">
-              Remember this device for 30 days
+              Remember this account on this device
             </label>
           </div>
 
@@ -187,11 +230,11 @@ export const Login: React.FC = () => {
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Authenticating...</span>
+                <span>Authenticating with Backend...</span>
               </>
             ) : (
               <>
-                <span>Sign In</span>
+                <span>Sign In Securely</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}

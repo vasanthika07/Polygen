@@ -1,12 +1,22 @@
 import os
 import gc
+import time
 import logging
 import warnings
+from typing import Tuple, Dict, Any, Union, Optional
 import trimesh
-import numpy as np
-from typing import Tuple, Dict, Any
+
 from app.config import settings
 from app.schemas.job import StructuredPrompt
+from app.services.prompt_engine import prompt_engine
+from ai_models.text_to_3d.config import default_config, TextTo3DConfig
+from ai_models.text_to_3d.hardware import hardware_detector
+from ai_models.text_to_3d.model_loader import model_loader
+from ai_models.text_to_3d.prompt_formatter import prompt_formatter
+from ai_models.text_to_3d.procedural_synthesizer import procedural_synthesizer
+from ai_models.text_to_3d.mesh_validator import mesh_validator
+from ai_models.text_to_3d.preview_generator import preview_generator
+from ai_models.text_to_3d.inference_service import model_inference_service
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -16,213 +26,129 @@ logger = logging.getLogger(__name__)
 class TextTo3DGenerator:
     """
     Module 2: 3D Mesh Generation Engine
-    Generates 3D polygonal geometry from structured prompts using
-    OpenAI's Shap-E (or configured backend) with fallback to procedural SDF synthesis.
+    Orchestrates the 10-step AI Text-to-3D Geometry Pipeline:
+    1. Receive user prompt.
+    2. Load / parse structured prompt.
+    3. Apply model-specific prompt formatting.
+    4. Load the selected AI model / evaluate hardware.
+    5. Generate geometry (with timeout and memory tracking).
+    6. Extract mesh vertices and faces.
+    7. Validate geometry (degenerate face removal, watertightness check).
+    8. Save raw mesh (OBJ or PLY).
+    9. Generate offscreen 3D preview render.
+    10. Return output path and generation telemetry metadata.
     """
 
-    def __init__(self):
-        self.device = settings.DEVICE
-        self.model = None
-        self.diffusion = None
-        self.xm = None
+    def __init__(self, config: Optional[TextTo3DConfig] = None):
+        self.config = config or default_config
+        self.device = hardware_detector.get_hardware_info()["cuda_available"] and "cuda" or "cpu"
+        self.inference_service = model_inference_service
 
-    def _init_shape(self):
-        if self.model is None:
-            try:
-                import torch
-                from shap_e.diffusion.sample import sample_latents
-                from shap_e.diffusion.gaussian_diffusion import diffusion_from_config
-                from shap_e.models.download import load_model, load_config
-                from shap_e.util.notebooks import create_pan_cameras, decode_latent_images, decode_latent_mesh
+    def generate(
+        self,
+        prompt_input: Union[str, StructuredPrompt],
+        output_path: Optional[str] = None,
+        output_format: str = "obj",
+        generate_preview_image: bool = True,
+    ) -> Tuple[trimesh.Trimesh, Dict[str, Any]]:
+        """
+        Executes the full 10-step text-to-3D pipeline.
 
-                logger.info(f"Loading Shap-E text300M model onto device={self.device}...")
-                self.xm = load_model('transmitter', device=torch.device(self.device))
-                self.model = load_model('text300M', device=torch.device(self.device))
-                self.diffusion = diffusion_from_config(load_config('diffusion'))
-                logger.info("Shap-E models successfully loaded into memory.")
-            except Exception as e:
-                logger.error(f"Failed to load Shap-E weights: {e}. Will use procedural geometric synthesis.")
-                self.model = False
+        Args:
+            prompt_input: Either raw string prompt or StructuredPrompt instance.
+            output_path: Target file path to write raw mesh (defaults to storage/raw_meshes/).
+            output_format: 'obj' or 'ply'.
+            generate_preview_image: Whether to render an offscreen thumbnail preview.
 
-    def generate(self, prompt_data: StructuredPrompt, output_path: str) -> Tuple[trimesh.Trimesh, Dict[str, Any]]:
+        Returns:
+            Tuple of (trimesh.Trimesh, metadata_dict)
+        """
+        start_pipeline = time.perf_counter()
+
+        # Step 1 & 2: Receive user prompt & load structured prompt
+        if isinstance(prompt_input, str):
+            structured_prompt = prompt_engine.process(prompt_input)
+        else:
+            structured_prompt = prompt_input
+
+        raw_prompt = structured_prompt.raw_prompt
+        logger.info(f"[TextTo3D] Starting 3D generation for prompt: '{raw_prompt}'")
+
+        # Step 3, 4, 5 & 6: Format prompt, load model, run inference with timeout & memory tracking, extract vertices/faces
+        mesh, telemetry = self.inference_service.run_inference(structured_prompt)
+
+        # Step 7: Validate Geometry
+        mesh, val_stats = mesh_validator.validate_and_clean(mesh)
+
+        # Determine target output file path
+        if not output_path:
+            import uuid
+            job_slug = str(uuid.uuid4())[:8]
+            output_path = os.path.join(settings.STORAGE_RAW_DIR, f"{job_slug}_raw.{output_format}")
+
         abs_output = os.path.abspath(output_path)
         os.makedirs(os.path.dirname(abs_output), exist_ok=True)
-        raw_prompt = prompt_data.raw_prompt
-        logger.info(f"Generating 3D geometry for prompt: '{raw_prompt}'")
 
-        mesh = None
-        model_name = "shap-e-text300M"
+        # Step 8: Save the raw mesh (OBJ or PLY)
+        mesh.export(abs_output, file_type=output_format)
+        logger.info(f"[TextTo3D] Raw mesh exported ({output_format.upper()}) to {abs_output}")
 
-        # Try genuine Shap-E inference if enabled and dependencies available
-        if settings.AI_BACKEND == "local_shape":
-            try:
-                import torch
-                from shap_e.diffusion.sample import sample_latents
-                from shap_e.util.notebooks import decode_latent_mesh
+        # Step 9: Generate Preview Thumbnail Render
+        preview_path = None
+        if generate_preview_image:
+            base_name = os.path.splitext(os.path.basename(abs_output))[0]
+            preview_target = os.path.join(settings.STORAGE_THUMBNAILS_DIR, f"{base_name}_preview.png")
+            preview_path = preview_generator.generate_preview(mesh, preview_target)
 
-                self._init_shape()
+        total_pipeline_time_ms = round((time.perf_counter() - start_pipeline) * 1000, 2)
 
-                if self.model:
-                    batch_size = 1
-                    guidance_scale = 15.0
-                    latents = sample_latents(
-                        batch_size=batch_size,
-                        model=self.model,
-                        diffusion=self.diffusion,
-                        guidance_scale=guidance_scale,
-                        model_kwargs=dict(texts=[raw_prompt]),
-                        progress=True,
-                        clip_denoised=True,
-                        use_fp16=(self.device == "cuda"),
-                        use_karras=True,
-                        karras_steps=32, # Fast iteration for reasonable CPU latency
-                        sigma_min=1e-3,
-                        sigma_max=160,
-                        s_churn=0,
-                    )
-                    
-                    t_mesh = decode_latent_mesh(self.xm, latents[0]).tri_mesh()
-                    # Convert to trimesh
-                    verts = t_mesh.verts
-                    faces = t_mesh.faces
-                    mesh = trimesh.Trimesh(vertices=verts, faces=faces, process=True)
-                    logger.info(f"Shap-E produced mesh with {len(mesh.vertices)} verts and {len(mesh.faces)} faces")
-            except Exception as e:
-                logger.warning(f"Shap-E inference encountered: {e}. Generating procedural volumetric surface...")
+        # Step 10: Compile and Return Output Path and Comprehensive Metadata
+        file_size_bytes = os.path.getsize(abs_output) if os.path.exists(abs_output) else 0
 
-        # If mesh not generated by Shap-E, generate high-fidelity recognizable geometry based on prompt semantics
-        if mesh is None:
-            model_name = "polygen-volumetric-synthesizer"
-            mesh = self._generate_semantic_geometry(prompt_data)
-
-        # Export raw mesh (OBJ)
-        mesh.export(abs_output, file_type="obj")
-
-        metadata = {
-            "model_used": model_name,
-            "raw_vertices": len(mesh.vertices),
-            "raw_faces": len(mesh.faces),
-            "bounding_box": [float(x) for x in mesh.extents],
+        metadata: Dict[str, Any] = {
+            # Identification & Paths
             "output_raw_path": abs_output,
+            "preview_image_path": preview_path,
+            "output_format": output_format,
+            "file_size_bytes": file_size_bytes,
+            "file_size_kb": round(file_size_bytes / 1024, 2),
+
+            # Semantic Attributes
+            "object": structured_prompt.object,
+            "style": structured_prompt.style,
+            "material": structured_prompt.material,
+            "details": structured_prompt.details,
+            "raw_prompt": raw_prompt,
+
+            # Geometry Validation Metrics
+            "raw_vertices": val_stats["valid_vertices"],
+            "raw_faces": val_stats["valid_faces"],
+            "bounding_box": val_stats["bounding_box_extents"],
+            "bounding_box_volume": val_stats["bounding_box_volume"],
+            "surface_area": val_stats["surface_area"],
+            "is_watertight": val_stats["is_watertight"],
+            "is_manifold": val_stats["is_winding_consistent"],
+            "validation_stats": val_stats,
+
+            # Performance Telemetry
+            "model_used": telemetry["model_used"],
+            "execution_mode": telemetry["execution_mode"],
+            "device": telemetry["device"],
+            "gpu_detected": telemetry["gpu_detected"],
+            "gpu_name": telemetry.get("gpu_name"),
+            "fallback_used": telemetry["fallback_used"],
+            "fallback_reason": telemetry["fallback_reason"],
+            "model_loading_time_ms": telemetry["model_loading_time_ms"],
+            "inference_time_ms": telemetry["inference_time_ms"],
+            "mesh_generation_time_ms": telemetry["mesh_generation_time_ms"],
+            "total_pipeline_time_ms": total_pipeline_time_ms,
+            "memory_usage_mb": telemetry["memory_usage_mb"],
+            "formatted_prompt": telemetry["formatted_prompt"],
         }
 
-        # Clear memory
+        # Clear garbage collection
         gc.collect()
 
         return mesh, metadata
 
-    def _generate_semantic_geometry(self, prompt_data: StructuredPrompt) -> trimesh.Trimesh:
-        """
-        Synthesizes parametric 3D surfaces tailored to the object type
-        (e.g., broadsword, chair, chest, robot, sculpture) with genuine volumetric features.
-        """
-        obj = prompt_data.object.lower()
-        
-        if "sword" in obj or "broadsword" in obj or "blade" in obj:
-            # 1. Blade: tapered extruded polygon
-            blade_len = 2.4
-            blade_w = 0.22
-            blade_thick = 0.04
-            blade = trimesh.creation.box(extents=[blade_w, blade_thick, blade_len])
-            blade.apply_translation([0, 0, blade_len / 2 + 0.3])
-            
-            # Pointed tip
-            tip = trimesh.creation.cone(radius=blade_w * 0.7, height=0.4)
-            tip.apply_translation([0, 0, blade_len + 0.3 + 0.2])
-
-            # Crossguard
-            guard = trimesh.creation.box(extents=[0.75, 0.08, 0.08])
-            guard.apply_translation([0, 0, 0.3])
-
-            # Grip / Hilt
-            grip = trimesh.creation.cylinder(radius=0.045, height=0.45)
-            grip.apply_translation([0, 0, 0.075])
-
-            # Pommel
-            pommel = trimesh.creation.icosphere(subdivisions=2, radius=0.09)
-            pommel.apply_translation([0, 0, -0.16])
-
-            # Jewel/Sapphire embedded in hilt
-            jewel = trimesh.creation.icosphere(subdivisions=2, radius=0.05)
-            jewel.apply_translation([0, 0.05, 0.3])
-
-            combined = trimesh.util.concatenate([blade, tip, guard, grip, pommel, jewel])
-            return combined
-
-        elif "chair" in obj or "stool" in obj:
-            # Seat
-            seat = trimesh.creation.box(extents=[1.0, 1.0, 0.08])
-            seat.apply_translation([0, 0, 1.0])
-            
-            # 4 Legs
-            leg1 = trimesh.creation.cylinder(radius=0.04, height=1.0)
-            leg1.apply_translation([-0.4, -0.4, 0.5])
-            leg2 = trimesh.creation.cylinder(radius=0.04, height=1.0)
-            leg2.apply_translation([0.4, -0.4, 0.5])
-            leg3 = trimesh.creation.cylinder(radius=0.04, height=1.0)
-            leg3.apply_translation([-0.4, 0.4, 0.5])
-            leg4 = trimesh.creation.cylinder(radius=0.04, height=1.0)
-            leg4.apply_translation([0.4, 0.4, 0.5])
-
-            # Backrest
-            back = trimesh.creation.box(extents=[1.0, 0.08, 1.0])
-            back.apply_translation([0, 0.45, 1.54])
-
-            return trimesh.util.concatenate([seat, leg1, leg2, leg3, leg4, back])
-
-        elif "chest" in obj or "box" in obj:
-            # Base container
-            base = trimesh.creation.box(extents=[1.2, 0.8, 0.6])
-            base.apply_translation([0, 0, 0.3])
-
-            # Curved lid
-            lid = trimesh.creation.cylinder(radius=0.4, height=1.2, sections=24)
-            # Rotate along X
-            rot = trimesh.transformations.rotation_matrix(np.pi / 2, [0, 1, 0])
-            lid.apply_transform(rot)
-            lid.apply_translation([0, 0, 0.6])
-
-            # Lock clasp
-            lock = trimesh.creation.box(extents=[0.12, 0.1, 0.18])
-            lock.apply_translation([0, -0.41, 0.55])
-
-            return trimesh.util.concatenate([base, lid, lock])
-
-        elif "robot" in obj or "mech" in obj:
-            # Torso
-            torso = trimesh.creation.box(extents=[0.8, 0.5, 1.0])
-            torso.apply_translation([0, 0, 1.3])
-
-            # Head
-            head = trimesh.creation.box(extents=[0.45, 0.4, 0.4])
-            head.apply_translation([0, 0, 2.0])
-
-            # Eye visor
-            visor = trimesh.creation.box(extents=[0.35, 0.1, 0.12])
-            visor.apply_translation([0, -0.22, 2.0])
-
-            # Limbs
-            arm_l = trimesh.creation.cylinder(radius=0.09, height=0.9)
-            arm_l.apply_translation([-0.55, 0, 1.25])
-            arm_r = trimesh.creation.cylinder(radius=0.09, height=0.9)
-            arm_r.apply_translation([0.55, 0, 1.25])
-
-            leg_l = trimesh.creation.cylinder(radius=0.11, height=0.85)
-            leg_l.apply_translation([-0.25, 0, 0.425])
-            leg_r = trimesh.creation.cylinder(radius=0.11, height=0.85)
-            leg_r.apply_translation([0.25, 0, 0.425])
-
-            return trimesh.util.concatenate([torso, head, visor, arm_l, arm_r, leg_l, leg_r])
-
-        else:
-            # Sculpture / Organic asset: Smooth displaced organic manifold
-            mesh = trimesh.creation.icosphere(subdivisions=4, radius=1.0)
-            # Add harmonic displacement to form a unique stone/monument sculpture
-            v = mesh.vertices
-            r = np.linalg.norm(v, axis=1, keepdims=True)
-            displacement = 0.25 * np.sin(3 * v[:, 0:1]) * np.cos(3 * v[:, 1:2]) + 0.15 * np.sin(5 * v[:, 2:3])
-            mesh.vertices += (v / r) * displacement
-            return mesh
-
 text_to_3d_generator = TextTo3DGenerator()
-

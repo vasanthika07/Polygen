@@ -106,6 +106,14 @@ class PipelineOrchestrator:
             )
             raw_mesh_path = os.path.join(settings.STORAGE_RAW_DIR, f"{job_id}_raw.obj")
             raw_mesh, gen_meta = text_to_3d_generator.generate(structured_prompt, raw_mesh_path)
+            
+            # Broadcast mesh generation telemetry
+            await update_stage(
+                stage="mesh_generation_validated",
+                progress=40,
+                message=f"3D surface validated ({gen_meta['raw_vertices']} verts, {gen_meta['raw_faces']} faces) via {gen_meta['model_used']}",
+                data={"telemetry": gen_meta},
+            )
             time.sleep(0.5)
 
             # ==========================================
@@ -178,6 +186,7 @@ class PipelineOrchestrator:
 
             metadata_payload = {
                 "structured_prompt": structured_prompt.model_dump(),
+                "gen_meta": gen_meta,
                 "clean_stats": clean_stats,
                 "uv_stats": uv_stats,
                 "opt_stats": opt_stats,
