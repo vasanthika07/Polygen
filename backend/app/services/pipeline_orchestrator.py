@@ -120,12 +120,20 @@ class PipelineOrchestrator:
             # STAGE 3: MESH CLEANING & UV UNWRAPPING (50%)
             # ==========================================
             await update_stage(
-                stage="uv_mapping",
-                progress=50,
-                message="Cleaning topology and generating non-overlapping UV atlas charts",
+                stage="mesh_cleaning",
+                progress=45,
+                message=f"Validating geometry, repairing non-manifold topology and recalculating normals",
                 data={"raw_faces": len(raw_mesh.faces), "raw_vertices": len(raw_mesh.vertices)},
             )
-            cleaned_mesh, clean_stats = mesh_cleaner.clean(raw_mesh)
+            processed_mesh_path = os.path.join(settings.STORAGE_PROCESSED_DIR, f"{job_id}_cleaned.obj")
+            cleaned_mesh, clean_stats = mesh_cleaner.clean(raw_mesh, output_path=processed_mesh_path)
+
+            await update_stage(
+                stage="uv_mapping",
+                progress=50,
+                message="Cleaning topology complete. Generating non-overlapping UV atlas charts",
+                data={"clean_stats": clean_stats},
+            )
             unwrapped_mesh, uv_stats = uv_unwrapper.unwrap(cleaned_mesh)
             time.sleep(0.5)
 
