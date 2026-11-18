@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     STORAGE_DIR: str = os.path.join(BASE_DIR, "storage")
     STORAGE_RAW_DIR: str = os.path.join(STORAGE_DIR, "raw_meshes")
     STORAGE_PROCESSED_DIR: str = os.path.join(STORAGE_DIR, "processed_meshes")
+    STORAGE_UNWRAPPED_DIR: str = os.path.join(STORAGE_DIR, "unwrapped_meshes")
     STORAGE_TEXTURES_DIR: str = os.path.join(STORAGE_DIR, "textures")
     STORAGE_EXPORTS_DIR: str = os.path.join(STORAGE_DIR, "exports")
     STORAGE_THUMBNAILS_DIR: str = os.path.join(STORAGE_DIR, "thumbnails")

@@ -134,7 +134,14 @@ class PipelineOrchestrator:
                 message="Cleaning topology complete. Generating non-overlapping UV atlas charts",
                 data={"clean_stats": clean_stats},
             )
-            unwrapped_mesh, uv_stats = uv_unwrapper.unwrap(cleaned_mesh)
+            unwrapped_mesh_path = os.path.join(settings.STORAGE_UNWRAPPED_DIR, f"{job_id}_unwrapped.obj")
+            uv_preview_path = os.path.join(settings.STORAGE_THUMBNAILS_DIR, f"{job_id}_uv_layout.png")
+            unwrapped_mesh, uv_stats = uv_unwrapper.unwrap(
+                cleaned_mesh,
+                output_path=unwrapped_mesh_path,
+                preview_path=uv_preview_path,
+                resolution=1024 if quality != "standard" else 512,
+            )
             time.sleep(0.5)
 
             # ==========================================
