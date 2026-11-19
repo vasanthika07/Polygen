@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
-import { authApi } from '../services/api';
+import { authApi, extractErrorMessage } from '../services/api';
 import { 
   Box, 
   Lock, 
@@ -52,11 +52,6 @@ export const Login: React.FC = () => {
       return;
     }
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters long and satisfy security requirements.');
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
@@ -78,17 +73,17 @@ export const Login: React.FC = () => {
 
       addNotification({
         title: 'Authentication Successful',
-        message: `Welcome back, ${user.username}! Your generative studio is active.`,
+        message: `Welcome back, ${user.username || user.name}! Your generative studio is active.`,
         type: 'success',
       });
 
       navigate('dashboard');
     } catch (err: any) {
       console.error('Login error:', err);
-      const errorMsg =
-        err.response?.data?.detail ||
-        err.response?.data?.error?.message ||
-        'Authentication failed: incorrect email/username or password. Please verify credentials or use the demo account.';
+      const errorMsg = extractErrorMessage(
+        err,
+        'Authentication failed: incorrect email/username or password. Please verify credentials or use the demo account.'
+      );
       setError(errorMsg);
       addNotification({
         title: 'Sign In Failed',

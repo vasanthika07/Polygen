@@ -3,6 +3,7 @@ import { useStore } from '../store/useStore';
 import { 
   Sparkles, 
   Box, 
+  Wrench,
   Layers, 
   Palette, 
   Sliders, 
@@ -20,13 +21,15 @@ interface StageConfig {
 }
 
 const STAGES: StageConfig[] = [
-  { key: 'prompt_processing', name: 'Prompt Understanding', description: 'Extracting materials, style & geometry attributes', icon: Sparkles },
-  { key: 'mesh_generation', name: 'Mesh Generation', description: 'AI neural synthesis & polygonal surface extraction', icon: Box },
-  { key: 'uv_mapping', name: 'UV Mapping', description: 'xatlas conformal parameterization & non-overlapping atlas', icon: Layers },
-  { key: 'texture_generation', name: 'Texture Synthesis', description: 'Synthesizing PBR diffuse, normal, roughness, metallic, emissive maps', icon: Palette },
-  { key: 'mesh_optimization', name: 'Mesh Optimization', description: 'Quadric Error decimation to match polygon budget', icon: Sliders },
-  { key: 'material_assignment', name: 'Material Binding', description: 'Binding PBR channels & packaging glTF 2.0 binary', icon: FileCheck },
-  { key: 'completed', name: 'Ready & Verified', description: 'Verification pass complete. Ready for 3D inspection & export', icon: CheckCircle2 },
+  { key: 'prompt_analysis', name: 'Prompt Analysis', description: 'Extracting materials, semantics & geometry attributes', icon: Sparkles },
+  { key: 'mesh_generation', name: '3D Generation', description: 'AI neural synthesis & polygonal surface extraction', icon: Box },
+  { key: 'mesh_processing', name: 'Mesh Processing', description: 'Validating topology, non-manifold repair & normal recalculation', icon: Wrench },
+  { key: 'uv_mapping', name: 'UV Mapping', description: 'Conformal parameterization & non-overlapping atlas packing', icon: Layers },
+  { key: 'texture_generation', name: 'Texture Generation', description: 'Synthesizing PBR diffuse, normal, roughness, metallic, emissive maps', icon: Palette },
+  { key: 'material_creation', name: 'PBR Material Creation', description: 'Compiling glTF 2.0 PBR material definitions & channel binding', icon: Sparkles },
+  { key: 'mesh_optimization', name: 'Mesh Optimization', description: 'Target polygon budget decimation & LOD simplification', icon: Sliders },
+  { key: 'glb_export', name: 'GLB Export', description: 'Compiling binary GLB container & rendering thumbnail preview', icon: FileCheck },
+  { key: 'completed', name: 'Completed', description: 'Asset verified and ready for 3D inspection & download', icon: CheckCircle2 },
 ];
 
 export const GenerationProgress: React.FC = () => {
@@ -40,7 +43,14 @@ export const GenerationProgress: React.FC = () => {
   const isCompleted = generationStage === 'completed';
 
   const getCurrentStageIndex = () => {
-    const idx = STAGES.findIndex((s) => s.key === generationStage);
+    // Map backwards-compatible or transitional stage names
+    let normalized = generationStage;
+    if (normalized === 'prompt_processing') normalized = 'prompt_analysis';
+    if (normalized === 'mesh_cleaning') normalized = 'mesh_processing';
+    if (normalized === 'mesh_generation_validated') normalized = 'mesh_generation';
+    if (normalized === 'material_assignment') normalized = 'material_creation';
+
+    const idx = STAGES.findIndex((s) => s.key === normalized);
     return idx >= 0 ? idx : 0;
   };
 
@@ -102,7 +112,7 @@ export const GenerationProgress: React.FC = () => {
         />
       </div>
 
-      {/* Stage Step Indicators */}
+      {/* Stage Step Indicators (9 Pipeline Stages) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
         {STAGES.map((stage, idx) => {
           const Icon = stage.icon;
@@ -114,7 +124,7 @@ export const GenerationProgress: React.FC = () => {
               key={stage.key}
               className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition-all ${
                 isCurrent
-                  ? 'bg-blue-950/40 border-blue-500/40 shadow-md shadow-blue-500/10'
+                  ? 'bg-blue-950/40 border-blue-500/40 shadow-md shadow-blue-500/10 ring-1 ring-blue-500/30'
                   : isPast
                   ? 'bg-slate-900/40 border-slate-800 text-slate-300'
                   : 'bg-slate-950/40 border-slate-900 text-slate-500'
@@ -140,7 +150,7 @@ export const GenerationProgress: React.FC = () => {
 
               <div className="min-w-0">
                 <div className={`text-xs font-medium truncate ${
-                  isCurrent ? 'text-blue-300' : isPast ? 'text-slate-200' : 'text-slate-500'
+                  isCurrent ? 'text-blue-300 font-semibold' : isPast ? 'text-slate-200' : 'text-slate-500'
                 }`}>
                   {stage.name}
                 </div>
@@ -155,4 +165,3 @@ export const GenerationProgress: React.FC = () => {
     </div>
   );
 };
-

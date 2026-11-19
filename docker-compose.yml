@@ -4,16 +4,17 @@ services:
   db:
     image: postgres:15-alpine
     container_name: polygen-db
+    restart: always
     environment:
-      POSTGRES_USER: polygen_user
-      POSTGRES_PASSWORD: polygen_password
-      POSTGRES_DB: polygen_db
+      POSTGRES_USER: ${POSTGRES_USER:-polygen_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-polygen_password}
+      POSTGRES_DB: ${POSTGRES_DB:-polygen_db}
     ports:
       - "5432:5432"
     volumes:
       - polygen_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U polygen_user -d polygen_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-polygen_user} -d ${POSTGRES_DB:-polygen_db}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -21,42 +22,76 @@ services:
   redis:
     image: redis:7-alpine
     container_name: polygen-redis
+    restart: always
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
     container_name: polygen-backend
+    restart: always
     environment:
-      - DATABASE_URL=postgresql+asyncpg://polygen_user:polygen_password@db:5432/polygen_db
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-polygen_user}:${POSTGRES_PASSWORD:-polygen_password}@db:5432/${POSTGRES_DB:-polygen_db}
       - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - STORAGE_DIR=/app/storage
       - AI_BACKEND=procedural
       - DEVICE=cpu
+      - SECRET_KEY=${SECRET_KEY:-polygen-production-secret-key-replace-in-env}
     volumes:
-      - ./storage:/app/storage
+      - polygen_storage:/app/storage
     ports:
       - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: polygen-worker
+    restart: always
+    command: celery -A app.workers.celery_app worker --loglevel=info -c 1
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-polygen_user}:${POSTGRES_PASSWORD:-polygen_password}@db:5432/${POSTGRES_DB:-polygen_db}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - STORAGE_DIR=/app/storage
+      - AI_BACKEND=procedural
+      - DEVICE=cpu
+      - SECRET_KEY=${SECRET_KEY:-polygen-production-secret-key-replace-in-env}
+    volumes:
+      - polygen_storage:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   frontend:
-    image: node:20-alpine
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: polygen-frontend
-    working_dir: /app
-    volumes:
-      - ./frontend:/app
+    restart: always
     ports:
-      - "5173:5173"
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+      - "80:80"
+      - "5173:80"
     depends_on:
       - backend
 
 volumes:
   polygen_pgdata:
-
+  polygen_storage:

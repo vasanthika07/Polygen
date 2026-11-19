@@ -2,78 +2,77 @@
 
 ## Introduction (30 Seconds)
 
-> *"Hello everyone. Today, 3D asset creation for games, spatial computing, and extended reality is bottlenecked by manual workflows: modeling, retopology, UV unwrapping, texturing, and engine optimization can take artists several days per asset.*
+> *"Welcome to the demonstration of **PolyGen**, an automated AI-driven Text-to-3D asset pipeline. Traditional 3D content creation requires hours or days of manual modeling, retopology, UV mapping, texture baking, and shader configuration.*
 > 
-> *Meet **PolyGen**: an AI-driven, end-to-end text-to-3D asset pipeline. PolyGen turns natural-language descriptions into game-ready, UV-unwrapped, PBR-textured 3D models in binary GLB format, ready for immediate drag-and-drop into Unreal Engine, Unity, and Blender."*
+> *PolyGen turns natural language descriptions into game-ready, UV-unwrapped, PBR-textured 3D models in binary GLB format in under 5 seconds, ready for immediate drag-and-drop into Unreal Engine 5, Unity, and Blender."*
 
 ---
 
-## Live Demonstration Walkthrough
+## Live Demonstration Flow
 
-### Step 1: Launching the Unified Service
-Show the terminal starting the application:
-```powershell
-.\start_polygen.bat
-```
-Navigate to `http://127.0.0.1:8000`.
-
-Highlight the modern dark charcoal dashboard inspired by Unreal Engine 5 and Blender.
+### Step 1: Authentication & Workspace Initialization
+1. Open browser at `http://localhost:5173` (or production port `80`).
+2. Log in with user credentials or demonstrate quick registration.
+3. Show the Unreal Engine 5 dark workspace aesthetic with real-time HUD telemetry.
 
 ---
 
-### Step 2: Submitting a Natural Language Prompt
-In the Generative 3D Studio, enter the prompt:
-> **"A rusted medieval broadsword with a glowing blue sapphire in the hilt."**
-
-Demonstrate the parameter controls:
-- **Style Selector**: Set to *Medieval Fantasy*.
-- **Quality Preset**: Set to *High (1024px PBR Maps)*.
-- **Polygon Budget Slider**: Set to *10,000 Polygons*.
-
-Click **GENERATE 3D MODEL**.
-
----
-
-### Step 3: Real-Time 8-Stage Pipeline Observability
-Point the audience to the **Generation Progress** panel:
-- **Stage 1 (Prompt Understanding)**: NLP parses "rusted iron" for material, "medieval fantasy" for style, and detects the "blue sapphire" emissive cue.
-- **Stage 2 (3D Mesh Generation)**: Generates 3D polygonal geometry and saves raw vertices.
-- **Stage 3 (Topology Cleaning & UV Mapping)**: Removes duplicate vertices, culls non-manifold edges, and runs `xatlas` conformal parameterization.
-- **Stage 4 (Texture Synthesis)**: Synthesizes five PBR maps: BaseColor, Roughness, Metallic, Normal, and Emissive.
-- **Stage 5 (QEM Decimation)**: Simplifies geometry down to the user's exact polygon budget.
-- **Stage 6 (Material Binding & GLB Export)**: Binds metallic-roughness channels and packs standard glTF 2.0 binary (`.glb`).
-- **Stage 7 & 8 (Verification & Display)**: Verification pass verifies polygon counts, dimensions, and loads the model directly into the 3D viewport.
+### Step 2: Prompt Input & Multi-Parameter Configuration
+1. In the Generative 3D Studio, enter the prompt:
+   > **"A rusted medieval broadsword with a glowing blue sapphire in the hilt."**
+2. Configure parameters:
+   - **Style**: *Fantasy*
+   - **Quality**: *High Quality (1024px PBR Maps)*
+   - **Polygon Budget**: *5,000 Polygons*
+   - **Target Format**: *glTF 2.0 Binary (GLB)*
+3. Click **GENERATE 3D ASSET**.
 
 ---
 
-### Step 4: Interactive 3D Inspection
-Once generated:
-1. **PBR Texture Mode**: Rotate the broadsword with OrbitControls. Note how lighting glistens on the metallic blade and the blue sapphire emits glow.
-2. **Clay Solid Mode**: Click *Clay Solid* to inspect the raw geometric silhouette.
-3. **Wireframe Mode**: Click *Wireframe* to reveal clean edge topology and polygon distribution.
-4. **Live Telemetry**: Point out the polygon count, vertex count, file size (MB), and bounding box dimensions in meters.
+### Step 3: Real-Time 9-Stage Progress Tracking
+Show the animated progress bar and live stage checklist receiving WebSocket telemetry updates:
+1. **Prompt Analysis (10%)**: Deconstructing natural-language semantics, materials, and geometry.
+2. **3D Generation (25% &rarr; 35%)**: AI neural synthesis & surface polygon extraction.
+3. **Mesh Processing (45%)**: Validating topology, welding coincident vertices, repairing non-manifold edges.
+4. **UV Mapping (55%)**: Parameterizing non-overlapping UV atlas charts via xatlas.
+5. **Texture Generation (70%)**: Synthesizing PBR diffuse, roughness, metallic, normal, and emissive channels.
+6. **PBR Material Creation (80%)**: Compiling glTF 2.0 Cook-Torrance physical material definitions.
+7. **Mesh Optimization (88%)**: Decimating mesh using Quadric Error Metric (QEM) to match polygon budget.
+8. **GLB Export (95%)**: Packaging binary container, embedding textures, and rendering thumbnail.
+9. **Completed (100%)**: Final validation pass complete; automatically loads in interactive 3D viewer.
 
 ---
 
-### Step 5: Asset Download & Game Engine Import
-Click **Download GLB**.
-Show how the exported file is self-contained:
-- Open Blender $\to$ `File` $\to$ `Import` $\to$ `glTF 2.0 (.glb)`.
-- The sword appears with correct scale, origin, materials, and embedded textures automatically linked into the Principled BSDF node!
+### Step 4: Interactive Three.js 3D Viewer Inspection
+Demonstrate the 16 interactive viewport features:
+1. **OrbitControls**: Rotate, pan, and zoom around the generated broadsword.
+2. **Camera Reset / Framing**: Frame asset in camera view.
+3. **Lighting & Shadows**: Studio three-point lighting with dynamic contact shadow ground plane.
+4. **Shading Modes**:
+   - *PBR Textured* (Full physical rendering)
+   - *Wireframe Overlay* (Inspect topological edge loops)
+   - *Base Color Only*
+   - *Normals Preview* (Inspect tangent vectors)
+   - *Roughness / Metallic Heatmaps*
+5. **Telemetry HUD**: Inspect vertex count (2,858), polygon count (4,364), file size (1.33 MB), and bounding box dimensions.
 
 ---
 
-### Step 6: Asset Library & Management
-Click **Asset Library** in the navigation header:
-- View all previously generated models.
-- Demonstrate instant switching between assets.
-- Show search filtering and asset deletion.
+### Step 5: Asset Download & Engine Import
+1. In the viewer action bar, select the export profile:
+   - *Standard GLB (1024px)*
+   - *High-Quality GLB (2048px)*
+   - *Optimized GLB (512px)*
+2. Click **Download GLB**.
+3. Verify downloaded file integrity in Blender or Unreal Engine.
 
 ---
 
-## Conclusion & Next Steps (30 Seconds)
-
-> *"PolyGen eliminates hours of tedious 3D grunt work, empowering game development studios and indie developers to populate worlds rapidly with production-grade 3D assets.*
-> 
-> *Thank you, and we're ready to answer any questions."*
-
+### Step 6: Asset Library & Generation History Audit
+1. Navigate to **Asset Library**:
+   - Filter assets by date: *Today*, *This Week*, *This Month*.
+   - Sort by: *Newest*, *Polygon Count (Desc/Asc)*, *File Size*.
+   - Search by keyword: `"sword"`, `"sapphire"`.
+2. Navigate to **Generation History**:
+   - Review complete audit trail of prompt, duration, selected settings, and status badges.
+   - Expand failure diagnostic drawers to show error isolation and retry options.

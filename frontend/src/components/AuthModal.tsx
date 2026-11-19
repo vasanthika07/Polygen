@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
-import { authApi } from '../services/api';
+import { authApi, extractErrorMessage } from '../services/api';
 import { X, Lock, Mail, User as UserIcon, Loader2 } from 'lucide-react';
 
 interface AuthModalProps {
@@ -27,6 +27,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     const cleanEmail = email.trim();
 
     if (!isLogin) {
+      if (!cleanEmail) {
+        setError('Please enter your email address');
+        return;
+      }
+      if (cleanUsername && cleanUsername.length < 3) {
+        setError('Username must be at least 3 characters long');
+        return;
+      }
       if (password.length < 8) {
         setError('Password must be at least 8 characters long');
         return;
@@ -65,26 +73,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         setSession(res.data.access_token, res.data.refresh_token || null, res.data.user);
         addNotification({
           title: 'Welcome Back',
-          message: `Signed in as ${res.data.user.username}`,
+          message: `Signed in as ${res.data.user.username || res.data.user.name}`,
           type: 'success',
         });
       } else {
         const res = await authApi.register({
-          username: cleanUsername,
+          username: cleanUsername || undefined,
           email: cleanEmail,
           password,
         });
         setSession(res.data.access_token, res.data.refresh_token || null, res.data.user);
         addNotification({
           title: 'Account Created',
-          message: `Welcome to PolyGen, ${res.data.user.username}`,
+          message: `Welcome to PolyGen, ${res.data.user.username || res.data.user.name}`,
           type: 'success',
         });
       }
       onClose();
     } catch (err: any) {
       console.error('Auth error:', err);
-      setError(err.response?.data?.detail || 'Authentication failed. Please check your credentials.');
+      setError(extractErrorMessage(err, 'Authentication failed. Please check your credentials.'));
     } finally {
       setIsLoading(false);
     }

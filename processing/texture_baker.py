@@ -118,6 +118,45 @@ class PBRTextureBaker:
 
         return paths
 
+    def bake_textures_to_mesh(
+        self,
+        mesh: trimesh.Trimesh,
+        textures: Dict[str, Image.Image],
+        output_dir: Optional[str] = None,
+        resolution: int = 1024,
+    ) -> Dict[str, Any]:
+        """
+        Bakes textures onto a UV-mapped mesh and persists them to disk.
+        """
+        if output_dir is None:
+            output_dir = os.path.abspath("storage/textures")
+        os.makedirs(output_dir, exist_ok=True)
+        res = self._validate_resolution(resolution)
+
+        # If mesh has UVs, apply uv-aware dilation
+        if hasattr(mesh, "visual") and hasattr(mesh.visual, "uv") and mesh.visual.uv is not None:
+            textures = self.bake_uv_aware_textures(textures=textures, mesh=mesh, resolution=res)
+
+        paths = {
+            "basecolor": os.path.join(output_dir, "basecolor.png"),
+            "roughness": os.path.join(output_dir, "roughness.png"),
+            "metallic": os.path.join(output_dir, "metallic.png"),
+            "normal": os.path.join(output_dir, "normal.png"),
+            "ambient_occlusion": os.path.join(output_dir, "ambient_occlusion.png"),
+            "emissive": os.path.join(output_dir, "emissive.png"),
+            "orm": os.path.join(output_dir, "orm.png"),
+        }
+
+        for k in ["basecolor", "roughness", "metallic", "normal", "ambient_occlusion", "emissive", "orm"]:
+            if k in textures:
+                textures[k].save(paths[k], "PNG")
+
+        return {
+            "mesh": mesh,
+            "texture_paths": paths,
+            "textures": textures,
+        }
+
     def bake_uv_aware_textures(
         self,
         textures: Dict[str, Image.Image],

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
-import { authApi } from '../services/api';
+import { authApi, extractErrorMessage } from '../services/api';
 import {
   Settings,
   User as UserIcon,
@@ -79,7 +79,7 @@ export const UserSettings: React.FC = () => {
       setTimeout(() => setProfileSuccess(false), 4000);
     } catch (err: any) {
       console.error('Update profile error:', err);
-      const msg = err.response?.data?.detail || 'Failed to update profile';
+      const msg = extractErrorMessage(err, 'Failed to update profile');
       setProfileError(msg);
       addNotification({
         title: 'Profile Update Failed',
@@ -139,7 +139,7 @@ export const UserSettings: React.FC = () => {
       setTimeout(() => setPasswordSuccess(false), 4000);
     } catch (err: any) {
       console.error('Change password error:', err);
-      const msg = err.response?.data?.detail || 'Failed to update password';
+      const msg = extractErrorMessage(err, 'Failed to update password');
       setPasswordError(msg);
       addNotification({
         title: 'Password Change Failed',
@@ -419,19 +419,45 @@ export const UserSettings: React.FC = () => {
           </div>
 
           <div>
-            <div className="flex items-center justify-between text-xs text-slate-300 mb-1.5">
-              <span>Default Polygon Budget</span>
-              <span className="font-mono text-blue-400 font-semibold">{polygonBudget.toLocaleString()} polys</span>
+            <div className="flex items-center justify-between text-xs text-slate-300 mb-2">
+              <span>Default Polygon Budget (Target Geometry Tier)</span>
+              <span className="font-mono text-indigo-400 font-bold">{polygonBudget.toLocaleString()} polys</span>
+            </div>
+            <div className="grid grid-cols-4 gap-2 mb-2.5">
+              {[
+                { label: 'Low', count: 3000 },
+                { label: 'Medium', count: 10000 },
+                { label: 'High', count: 35000 },
+                { label: 'Custom', count: polygonBudget },
+              ].map((b) => (
+                <button
+                  key={b.label}
+                  type="button"
+                  onClick={() => setPolygonBudget(b.count)}
+                  className={`py-1.5 px-2 rounded-lg border text-xs font-semibold transition-all ${
+                    polygonBudget === b.count
+                      ? 'bg-indigo-600 border-indigo-500 text-white shadow-sm'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  {b.label}
+                </button>
+              ))}
             </div>
             <input
               type="range"
               min={1000}
               max={50000}
-              step={1000}
+              step={500}
               value={polygonBudget}
               onChange={(e) => setPolygonBudget(parseInt(e.target.value))}
-              className="w-full accent-blue-500"
+              className="w-full accent-indigo-500"
             />
+            <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+              <span>3,000 (Mobile XR)</span>
+              <span>10,000 (Standard Game)</span>
+              <span>35,000+ (Hero Asset)</span>
+            </div>
           </div>
 
           <div>

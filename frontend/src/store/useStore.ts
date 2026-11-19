@@ -41,6 +41,131 @@ export interface AppNotification {
   timestamp: string;
 }
 
+export interface PBRSettings {
+  name: string;
+  materialClass: string;
+  baseColor: string;
+  baseColorOpacity: number;
+  metallic: number;
+  roughness: number;
+  normalScale: number;
+  aoIntensity: number;
+  emissiveColor: string;
+  emissiveIntensity: number;
+  alphaMode: 'OPAQUE' | 'MASK' | 'BLEND';
+  alphaCutoff: number;
+  doubleSided: boolean;
+}
+
+export const DEFAULT_PBR_SETTINGS: PBRSettings = {
+  name: 'Standard PBR',
+  materialClass: 'dielectric_mineral',
+  baseColor: '#ffffff',
+  baseColorOpacity: 1.0,
+  metallic: 0.1,
+  roughness: 0.45,
+  normalScale: 1.0,
+  aoIntensity: 1.0,
+  emissiveColor: '#000000',
+  emissiveIntensity: 0.0,
+  alphaMode: 'OPAQUE',
+  alphaCutoff: 0.5,
+  doubleSided: false,
+};
+
+export const PBR_PRESETS: Record<string, PBRSettings> = {
+  rusted_sword: {
+    name: 'Rusted Broadsword',
+    materialClass: 'oxidized_metal',
+    baseColor: '#8a7968',
+    baseColorOpacity: 1.0,
+    metallic: 0.82,
+    roughness: 0.48,
+    normalScale: 1.4,
+    aoIntensity: 1.0,
+    emissiveColor: '#1e3a8a',
+    emissiveIntensity: 0.35,
+    alphaMode: 'OPAQUE',
+    alphaCutoff: 0.5,
+    doubleSided: false,
+  },
+  glowing_sapphire: {
+    name: 'Glowing Sapphire Gem',
+    materialClass: 'emissive_gemstone',
+    baseColor: '#1d4ed8',
+    baseColorOpacity: 0.85,
+    metallic: 0.0,
+    roughness: 0.08,
+    normalScale: 0.3,
+    aoIntensity: 0.2,
+    emissiveColor: '#38bdf8',
+    emissiveIntensity: 2.8,
+    alphaMode: 'BLEND',
+    alphaCutoff: 0.5,
+    doubleSided: true,
+  },
+  carved_wood: {
+    name: 'Carved Oak Wood',
+    materialClass: 'dielectric_organic',
+    baseColor: '#78350f',
+    baseColorOpacity: 1.0,
+    metallic: 0.0,
+    roughness: 0.72,
+    normalScale: 1.1,
+    aoIntensity: 1.0,
+    emissiveColor: '#000000',
+    emissiveIntensity: 0.0,
+    alphaMode: 'OPAQUE',
+    alphaCutoff: 0.5,
+    doubleSided: false,
+  },
+  granite_stone: {
+    name: 'Ancient Granite Stone',
+    materialClass: 'dielectric_mineral',
+    baseColor: '#64748b',
+    baseColorOpacity: 1.0,
+    metallic: 0.02,
+    roughness: 0.88,
+    normalScale: 1.6,
+    aoIntensity: 1.0,
+    emissiveColor: '#000000',
+    emissiveIntensity: 0.0,
+    alphaMode: 'OPAQUE',
+    alphaCutoff: 0.5,
+    doubleSided: false,
+  },
+  translucent_glass: {
+    name: 'Translucent Glass',
+    materialClass: 'glass_optical',
+    baseColor: '#e0f2fe',
+    baseColorOpacity: 0.35,
+    metallic: 0.02,
+    roughness: 0.05,
+    normalScale: 0.2,
+    aoIntensity: 0.1,
+    emissiveColor: '#000000',
+    emissiveIntensity: 0.0,
+    alphaMode: 'BLEND',
+    alphaCutoff: 0.5,
+    doubleSided: true,
+  },
+  polished_gold: {
+    name: 'Polished Noble Gold',
+    materialClass: 'conductor_pure',
+    baseColor: '#fbbf24',
+    baseColorOpacity: 1.0,
+    metallic: 1.0,
+    roughness: 0.14,
+    normalScale: 0.5,
+    aoIntensity: 0.8,
+    emissiveColor: '#000000',
+    emissiveIntensity: 0.0,
+    alphaMode: 'OPAQUE',
+    alphaCutoff: 0.5,
+    doubleSided: false,
+  },
+};
+
 interface AppState {
   // Navigation & Routing
   currentRoute: AppRoute;
@@ -93,20 +218,57 @@ interface AppState {
   addJob: (job: JobStatus) => void;
 
   // Interactive 3D Viewport Controls
-  renderMode: 'textured' | 'wireframe' | 'solid' | 'normals';
-  setRenderMode: (mode: 'textured' | 'wireframe' | 'solid' | 'normals') => void;
+  renderMode: 'textured' | 'wireframe' | 'solid' | 'normals' | 'unlit';
+  setRenderMode: (mode: 'textured' | 'wireframe' | 'solid' | 'normals' | 'unlit') => void;
   showGrid: boolean;
   setShowGrid: (show: boolean) => void;
   showAxes: boolean;
   setShowAxes: (show: boolean) => void;
+  showBoundingBox: boolean;
+  setShowBoundingBox: (show: boolean) => void;
+  showWireframeOverlay: boolean;
+  setShowWireframeOverlay: (show: boolean) => void;
   autoRotate: boolean;
   setAutoRotate: (rotate: boolean) => void;
-  environmentPreset: 'city' | 'sunset' | 'studio' | 'warehouse' | 'night';
-  setEnvironmentPreset: (preset: 'city' | 'sunset' | 'studio' | 'warehouse' | 'night') => void;
+  environmentPreset: 'city' | 'sunset' | 'studio' | 'warehouse' | 'night' | 'forest' | 'dawn';
+  setEnvironmentPreset: (preset: 'city' | 'sunset' | 'studio' | 'warehouse' | 'night' | 'forest' | 'dawn') => void;
+  environmentIntensity: number;
+  setEnvironmentIntensity: (intensity: number) => void;
+  showEnvironmentBackground: boolean;
+  setShowEnvironmentBackground: (show: boolean) => void;
   ambientIntensity: number;
   setAmbientIntensity: (intensity: number) => void;
   directionalIntensity: number;
   setDirectionalIntensity: (intensity: number) => void;
+  viewportBgColor: string;
+  setViewportBgColor: (color: string) => void;
+  cameraFov: number;
+  setCameraFov: (fov: number) => void;
+  shadowsEnabled: boolean;
+  setShadowsEnabled: (enabled: boolean) => void;
+  doubleSidedRendering: boolean;
+  setDoubleSidedRendering: (doubleSided: boolean) => void;
+  viewerPropertiesTab: 'shading' | 'lighting' | 'camera';
+  setViewerPropertiesTab: (tab: 'shading' | 'lighting' | 'camera') => void;
+  isPropertiesPanelOpen: boolean;
+  setIsPropertiesPanelOpen: (open: boolean) => void;
+
+  // PBR Material System State
+  pbrSettings: PBRSettings;
+  isMaterialPanelOpen: boolean;
+  setIsMaterialPanelOpen: (open: boolean) => void;
+  updatePBRSettings: (patch: Partial<PBRSettings>) => void;
+  applyPBRPreset: (presetKey: string) => void;
+
+  // Mesh Optimizer State
+  polygonBudgetSetting: 'low' | 'medium' | 'high' | 'custom';
+  customPolygonBudget: number;
+  lastOptimizationReport: any | null;
+  isOptimizerPanelOpen: boolean;
+  setPolygonBudgetSetting: (preset: 'low' | 'medium' | 'high' | 'custom') => void;
+  setCustomPolygonBudget: (budget: number) => void;
+  setLastOptimizationReport: (report: any | null) => void;
+  setIsOptimizerPanelOpen: (open: boolean) => void;
 
   // User Settings
   settings: UserSettings;
@@ -227,14 +389,59 @@ export const useStore = create<AppState>((set, get) => ({
   setShowGrid: (showGrid) => set({ showGrid }),
   showAxes: false,
   setShowAxes: (showAxes) => set({ showAxes }),
+  showBoundingBox: false,
+  setShowBoundingBox: (showBoundingBox) => set({ showBoundingBox }),
+  showWireframeOverlay: false,
+  setShowWireframeOverlay: (showWireframeOverlay) => set({ showWireframeOverlay }),
   autoRotate: false,
   setAutoRotate: (autoRotate) => set({ autoRotate }),
   environmentPreset: 'city',
   setEnvironmentPreset: (environmentPreset) => set({ environmentPreset }),
+  environmentIntensity: 1.0,
+  setEnvironmentIntensity: (environmentIntensity) => set({ environmentIntensity }),
+  showEnvironmentBackground: false,
+  setShowEnvironmentBackground: (showEnvironmentBackground) => set({ showEnvironmentBackground }),
   ambientIntensity: 0.7,
   setAmbientIntensity: (ambientIntensity) => set({ ambientIntensity }),
   directionalIntensity: 1.4,
   setDirectionalIntensity: (directionalIntensity) => set({ directionalIntensity }),
+  viewportBgColor: '#090d16',
+  setViewportBgColor: (viewportBgColor) => set({ viewportBgColor }),
+  cameraFov: 45,
+  setCameraFov: (cameraFov) => set({ cameraFov }),
+  shadowsEnabled: true,
+  setShadowsEnabled: (shadowsEnabled) => set({ shadowsEnabled }),
+  doubleSidedRendering: true,
+  setDoubleSidedRendering: (doubleSidedRendering) => set({ doubleSidedRendering }),
+  viewerPropertiesTab: 'shading',
+  setViewerPropertiesTab: (viewerPropertiesTab) => set({ viewerPropertiesTab }),
+  isPropertiesPanelOpen: false,
+  setIsPropertiesPanelOpen: (isPropertiesPanelOpen) => set({ isPropertiesPanelOpen }),
+
+  // PBR Material System State & Actions
+  pbrSettings: DEFAULT_PBR_SETTINGS,
+  isMaterialPanelOpen: false,
+  setIsMaterialPanelOpen: (isMaterialPanelOpen) => set({ isMaterialPanelOpen }),
+  updatePBRSettings: (patch) =>
+    set((state) => ({
+      pbrSettings: { ...state.pbrSettings, ...patch },
+    })),
+  applyPBRPreset: (presetKey) => {
+    const preset = PBR_PRESETS[presetKey];
+    if (preset) {
+      set({ pbrSettings: { ...preset } });
+    }
+  },
+
+  // Mesh Optimizer Defaults & Actions
+  polygonBudgetSetting: 'medium',
+  customPolygonBudget: 10000,
+  lastOptimizationReport: null,
+  isOptimizerPanelOpen: false,
+  setPolygonBudgetSetting: (polygonBudgetSetting) => set({ polygonBudgetSetting }),
+  setCustomPolygonBudget: (customPolygonBudget) => set({ customPolygonBudget }),
+  setLastOptimizationReport: (lastOptimizationReport) => set({ lastOptimizationReport }),
+  setIsOptimizerPanelOpen: (isOptimizerPanelOpen) => set({ isOptimizerPanelOpen }),
 
   // Settings
   settings: {

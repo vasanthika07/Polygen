@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 class PromptAnalyzeRequest(BaseModel):
     """Input payload for natural language prompt analysis."""
@@ -8,6 +8,14 @@ class PromptAnalyzeRequest(BaseModel):
     quality: Optional[str] = Field("high", description="Target quality tier")
     polygon_budget: Optional[int] = Field(10000, ge=500, le=50000, description="Polygon target limit")
     target_format: Optional[str] = Field("glb", description="Desired export format")
+
+    @field_validator("prompt")
+    @classmethod
+    def validate_and_strip_prompt(cls, v: str) -> str:
+        trimmed = v.strip()
+        if len(trimmed) < 3:
+            raise ValueError("Prompt must contain at least 3 non-whitespace characters")
+        return trimmed
 
 class ShapeGeometryDescription(BaseModel):
     """Geometric topology and volumetric properties."""

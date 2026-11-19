@@ -1,164 +1,167 @@
 # PolyGen REST & WebSocket API Specification
 
-## Base URL
-- Local Development: `http://127.0.0.1:8000`
-- Interactive Swagger UI: `http://127.0.0.1:8000/docs`
-- ReDoc Documentation: `http://127.0.0.1:8000/redoc`
+## Base URLs
+- **Local API**: `http://127.0.0.1:8000`
+- **Interactive OpenAPI Documentation**: `http://127.0.0.1:8000/docs`
+- **ReDoc Interactive Reference**: `http://127.0.0.1:8000/redoc`
+- **WebSocket Gateway**: `ws://127.0.0.1:8000/ws/jobs/{job_id}`
 
 ---
 
-## 1. Authentication Endpoints
+## 1. Authentication Endpoints (`/api/auth`)
 
-### 1.1 Register User
-- **Method**: `POST`
-- **Route**: `/api/auth/register`
+### 1.1 Register User Account
+- **Endpoint**: `POST /api/auth/register`
+- **Status**: `201 Created`
 - **Request Body**:
 ```json
 {
-  "username": "3dartist",
-  "email": "artist@polygen.io",
-  "password": "StrongPassword123!"
+  "name": "Alex Mercer",
+  "username": "alex3d",
+  "email": "alex@polygen.ai",
+  "password": "SecurePassword123!"
 }
 ```
-- **Response** (`201 Created`):
-```json
-{
-  "access_token": "eyJhbGciOi...",
-  "token_type": "bearer",
-  "user": {
-    "id": "e83f2a1b-...",
-    "username": "3dartist",
-    "email": "artist@polygen.io",
-    "created_at": "2026-11-10T13:20:00Z"
-  }
-}
-```
+- **Response**: Returns JWT access token, refresh token, and user profile.
 
 ### 1.2 User Login
-- **Method**: `POST`
-- **Route**: `/api/auth/login`
+- **Endpoint**: `POST /api/auth/login`
+- **Status**: `200 OK`
 - **Request Body**:
 ```json
 {
-  "username_or_email": "3dartist",
-  "password": "StrongPassword123!"
+  "username_or_email": "alex@polygen.ai",
+  "password": "SecurePassword123!"
 }
 ```
+- **Response**: Returns session access token (`bearer`) and user profile.
 
-### 1.3 Get Current User
-- **Method**: `GET`
-- **Route**: `/api/auth/me`
-- **Headers**: `Authorization: Bearer <token>`
+### 1.3 Get Current User Profile
+- **Endpoint**: `GET /api/auth/me`
+- **Headers**: `Authorization: Bearer <access_token>`
+- **Response**: User model with id, email, username, display name, and creation timestamp.
 
 ---
 
-## 2. Generation Engine Endpoints
+## 2. 3D Asset Generation Endpoints (`/api`)
 
 ### 2.1 Submit 3D Generation Job
-- **Method**: `POST`
-- **Route**: `/api/generate`
-- **Headers**: `Authorization: Bearer <token>` (Optional)
+- **Endpoint**: `POST /api/generate`
+- **Status**: `202 Accepted`
+- **Headers**: `Authorization: Bearer <access_token>`
 - **Request Body**:
 ```json
 {
   "prompt": "A rusted medieval broadsword with a glowing blue sapphire in the hilt.",
-  "style": "medieval fantasy",
+  "style": "fantasy",
   "quality": "high",
-  "polygon_budget": 10000,
+  "polygon_budget": 5000,
   "target_format": "glb"
 }
 ```
-- **Response** (`202 Accepted`):
+- **Response**:
 ```json
 {
-  "job_id": "job_df51c6743604",
-  "prompt": "A rusted medieval broadsword with a glowing blue sapphire in the hilt.",
-  "status": "pending",
+  "job_id": "job_32af37896e21",
+  "status": "queued",
   "progress": 0,
   "current_stage": "queued",
-  "error_message": null,
-  "created_at": "2026-11-10T13:42:00Z",
-  "completed_at": null,
-  "asset_id": null
+  "created_at": "2026-11-19T14:50:00Z"
 }
 ```
 
-### 2.2 Query Job Status
-- **Method**: `GET`
-- **Route**: `/api/jobs/{job_id}`
-- **Response** (`200 OK`):
+### 2.2 Get Generation Job Status
+- **Endpoint**: `GET /api/jobs/{job_id}`
+- **Headers**: `Authorization: Bearer <access_token>`
+- **Response**:
 ```json
 {
-  "job_id": "job_df51c6743604",
-  "prompt": "A rusted medieval broadsword with a glowing blue sapphire in the hilt.",
+  "job_id": "job_32af37896e21",
   "status": "completed",
   "progress": 100,
   "current_stage": "completed",
-  "error_message": null,
-  "created_at": "2026-11-10T13:42:00Z",
-  "completed_at": "2026-11-10T13:42:02Z",
-  "asset_id": "asset_92b8d0e74f"
+  "asset_id": "asset_b86dd1fdac40",
+  "created_at": "2026-11-19T14:50:00Z",
+  "completed_at": "2026-11-19T14:50:04Z",
+  "duration_seconds": 4.5
 }
 ```
 
-### 2.3 Live WebSocket Progress Stream
-- **Protocol**: `WebSocket` (`ws://` or `wss://`)
-- **Route**: `/ws/jobs/{job_id}`
-- **Sample Event Broadcasts**:
-```json
-{
-  "job_id": "job_df51c6743604",
-  "stage": "prompt_processing",
-  "progress": 10,
-  "message": "Deconstructing natural-language semantics, materials, and geometry",
-  "timestamp": "2026-11-10T13:42:00.100Z"
-}
-```
-```json
-{
-  "job_id": "job_df51c6743604",
-  "stage": "completed",
-  "progress": 100,
-  "message": "Asset generated and verified! Ready for 3D inspection and download.",
-  "data": {
-    "asset_id": "asset_92b8d0e74f",
-    "glb_url": "/api/assets/asset_92b8d0e74f/download",
-    "polygon_count": 856,
-    "file_size": 3567096,
-    "file_size_mb": 3.4,
-    "dimensions": [0.75, 0.31, 3.55]
-  },
-  "timestamp": "2026-11-10T13:42:02.300Z"
-}
-```
+### 2.3 List Generation Jobs (History)
+- **Endpoint**: `GET /api/jobs`
+- **Query Parameters**:
+  - `limit`: `1..100` (default 50)
+  - `offset`: `0..N`
+  - `status`: `all` | `completed` | `processing` | `queued` | `failed`
+  - `search`: Keyword string
+- **Response**: Array of jobs owned by current user.
 
 ---
 
-## 3. Asset Repository Endpoints
+## 3. Real-Time WebSocket Streaming
 
-### 3.1 List Assets
-- **Method**: `GET`
-- **Route**: `/api/assets?limit=50&offset=0`
+### 3.1 Real-Time Stage Progress WebSocket
+- **Protocol**: `WebSocket`
+- **Endpoint**: `/ws/jobs/{job_id}`
+- **Client Keepalive**: Send string `"ping"` every 15s; server responds with `{"type": "pong"}`.
+- **Stage Progression Events Emitted**:
+  1. `prompt_analysis` (10%)
+  2. `mesh_generation` (25% &rarr; 35%)
+  3. `mesh_processing` (45%)
+  4. `uv_mapping` (55%)
+  5. `texture_generation` (70%)
+  6. `material_creation` (80%)
+  7. `mesh_optimization` (88%)
+  8. `glb_export` (95%)
+  9. `completed` (100%)
 
-### 3.2 Get Asset Detail
-- **Method**: `GET`
-- **Route**: `/api/assets/{asset_id}`
+---
 
-### 3.3 Download Binary GLB
-- **Method**: `GET`
-- **Route**: `/api/assets/{asset_id}/download`
-- **Response Headers**:
-  - `Content-Type: model/gltf-binary`
-  - `Content-Disposition: attachment; filename="asset_name.glb"`
+## 4. Asset Library & Download Endpoints (`/api/assets`)
 
-### 3.4 Get Asset Preview
-- **Method**: `GET`
-- **Route**: `/api/assets/{asset_id}/preview`
-- **Response Headers**:
-  - `Content-Type: image/png`
+### 4.1 List Assets
+- **Endpoint**: `GET /api/assets`
+- **Query Parameters**:
+  - `search`: Keyword filter
+  - `sort_by`: `newest` | `oldest` | `polygons_desc` | `polygons_asc` | `size_desc` | `name_asc`
+  - `date_filter`: `today` | `week` | `month` | `all`
+  - `limit`, `offset`: Pagination
+- **Response**: `{ "items": [...], "total": 12 }`
 
-### 3.5 Delete Asset
-- **Method**: `DELETE`
-- **Route**: `/api/assets/{asset_id}`
-- **Response**: `204 No Content`
+### 4.2 Get Asset Details
+- **Endpoint**: `GET /api/assets/{asset_id}`
+- **Headers**: `Authorization: Bearer <access_token>`
+- **Response**: Complete metadata including bounding box dimensions, polygon count, file size, and texture map paths.
 
+### 4.3 Download Binary GLB Asset
+- **Endpoint**: `GET /api/assets/{asset_id}/download`
+- **Query Parameters**:
+  - `export_option`: `standard` | `high_quality` | `optimized`
+  - `token`: (Optional query token for direct anchor downloads)
+- **Response**: Binary stream (`model/gltf-binary`) with content disposition attachment.
+
+### 4.4 Delete Asset
+- **Endpoint**: `DELETE /api/assets/{asset_id}`
+- **Status**: `204 No Content`
+- **Behavior**: Verifies user ownership, deletes database record and associated physical files on disk.
+
+---
+
+## 5. PBR Materials & Mesh Optimizer Endpoints
+
+### 5.1 Get Material Presets
+- **Endpoint**: `GET /api/materials/presets`
+- **Response**: Physical parameter configurations for `rusted_sword`, `glowing_sapphire`, `carved_wood`, `granite_stone`, `translucent_glass`, `polished_gold`.
+
+### 5.2 Evaluate PBR Material
+- **Endpoint**: `POST /api/materials/evaluate`
+- **Request Body**: `{ "prompt": "...", "material_type": "...", "details": [...] }`
+- **Response**: Cook-Torrance parameters, Gram-Schmidt tangent status, and glTF 2.0 schema validation.
+
+### 5.3 Get Optimizer Presets
+- **Endpoint**: `GET /api/optimizer/presets`
+- **Response**: Defined budgets (`low`: 3,000, `medium`: 10,000, `high`: 35,000).
+
+### 5.4 Analyze Mesh Topology
+- **Endpoint**: `POST /api/optimizer/analyze`
+- **Response**: Vertex/face counts, watertightness, surface area, bounding box volume, non-manifold edge detection.

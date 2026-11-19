@@ -79,10 +79,10 @@ class PipelineOrchestrator:
                 user_id = job.user_id
 
             # ==========================================
-            # STAGE 1: PROMPT PROCESSING (10%)
+            # STAGE 1: PROMPT ANALYSIS (10%)
             # ==========================================
             await update_stage(
-                stage="prompt_processing",
+                stage="prompt_analysis",
                 progress=10,
                 message="Deconstructing natural-language semantics, materials, and geometry",
             )
@@ -93,14 +93,14 @@ class PipelineOrchestrator:
                 polygon_budget=polygon_budget,
                 target_format=target_format,
             )
-            time.sleep(0.5)
+            time.sleep(0.3)
 
             # ==========================================
-            # STAGE 2: 3D MESH GENERATION (35%)
+            # STAGE 2: 3D GENERATION (25%)
             # ==========================================
             await update_stage(
                 stage="mesh_generation",
-                progress=35,
+                progress=25,
                 message=f"Generating 3D polygonal surface for '{structured_prompt.object}'",
                 data={"structured_prompt": structured_prompt.model_dump()},
             )
@@ -109,28 +109,32 @@ class PipelineOrchestrator:
             
             # Broadcast mesh generation telemetry
             await update_stage(
-                stage="mesh_generation_validated",
-                progress=40,
-                message=f"3D surface validated ({gen_meta['raw_vertices']} verts, {gen_meta['raw_faces']} faces) via {gen_meta['model_used']}",
+                stage="mesh_generation",
+                progress=35,
+                message=f"3D surface generated ({gen_meta['raw_vertices']} verts, {gen_meta['raw_faces']} faces) via {gen_meta['model_used']}",
                 data={"telemetry": gen_meta},
             )
-            time.sleep(0.5)
+            time.sleep(0.3)
 
             # ==========================================
-            # STAGE 3: MESH CLEANING & UV UNWRAPPING (50%)
+            # STAGE 3: MESH PROCESSING (45%)
             # ==========================================
             await update_stage(
-                stage="mesh_cleaning",
+                stage="mesh_processing",
                 progress=45,
-                message=f"Validating geometry, repairing non-manifold topology and recalculating normals",
+                message="Validating geometry, repairing non-manifold topology and recalculating normals",
                 data={"raw_faces": len(raw_mesh.faces), "raw_vertices": len(raw_mesh.vertices)},
             )
             processed_mesh_path = os.path.join(settings.STORAGE_PROCESSED_DIR, f"{job_id}_cleaned.obj")
             cleaned_mesh, clean_stats = mesh_cleaner.clean(raw_mesh, output_path=processed_mesh_path)
+            time.sleep(0.3)
 
+            # ==========================================
+            # STAGE 4: UV MAPPING (55%)
+            # ==========================================
             await update_stage(
                 stage="uv_mapping",
-                progress=50,
+                progress=55,
                 message="Cleaning topology complete. Generating non-overlapping UV atlas charts",
                 data={"clean_stats": clean_stats},
             )
@@ -142,14 +146,14 @@ class PipelineOrchestrator:
                 preview_path=uv_preview_path,
                 resolution=1024 if quality != "standard" else 512,
             )
-            time.sleep(0.5)
+            time.sleep(0.3)
 
             # ==========================================
-            # STAGE 4: PBR TEXTURE SYNTHESIS (65%)
+            # STAGE 5: TEXTURE GENERATION (70%)
             # ==========================================
             await update_stage(
                 stage="texture_generation",
-                progress=65,
+                progress=70,
                 message="Synthesizing PBR diffuse, roughness, metallic, normal, and emissive maps",
                 data={"uv_stats": uv_stats},
             )
@@ -162,29 +166,40 @@ class PipelineOrchestrator:
                 resolution=1024 if quality != "standard" else 512,
                 preview_path=textured_preview_path,
             )
-            time.sleep(0.5)
+            time.sleep(0.3)
 
             # ==========================================
-            # STAGE 5: MESH OPTIMIZATION & DECIMATION (80%)
+            # STAGE 6: PBR MATERIAL CREATION (80%)
+            # ==========================================
+            await update_stage(
+                stage="material_creation",
+                progress=80,
+                message="Compiling glTF 2.0 PBR material definitions and parameter mappings",
+                data={"texture_maps": list(tex_paths.keys())},
+            )
+            time.sleep(0.3)
+
+            # ==========================================
+            # STAGE 7: MESH OPTIMIZATION (88%)
             # ==========================================
             await update_stage(
                 stage="mesh_optimization",
-                progress=80,
+                progress=88,
                 message=f"Decimating mesh to target budget ({structured_prompt.polygon_budget} polygons)",
             )
             optimized_mesh, opt_stats = mesh_optimizer.optimize(
                 mesh=unwrapped_mesh,
                 target_polygon_budget=structured_prompt.polygon_budget,
             )
-            time.sleep(0.5)
+            time.sleep(0.3)
 
             # ==========================================
-            # STAGE 6: PBR MATERIAL ASSIGNMENT & GLB EXPORT (90%)
+            # STAGE 8: GLB EXPORT (95%)
             # ==========================================
             await update_stage(
-                stage="material_assignment",
-                progress=90,
-                message="Binding PBR texture channels and packing glTF 2.0 binary GLB",
+                stage="glb_export",
+                progress=95,
+                message="Packaging glTF 2.0 binary GLB container and generating asset preview thumbnail",
                 data={"optimization_stats": opt_stats},
             )
             output_glb_path = os.path.join(settings.STORAGE_EXPORTS_DIR, f"{job_id}.glb")
@@ -193,7 +208,7 @@ class PipelineOrchestrator:
                 texture_paths=tex_paths,
                 output_glb_path=output_glb_path,
             )
-            time.sleep(0.5)
+            time.sleep(0.3)
 
             # ==========================================
             # STAGE 7 & 8: ASSET PERSISTENCE & COMPLETED (100%)
@@ -220,7 +235,7 @@ class PipelineOrchestrator:
                     asset_name=asset_name,
                     original_prompt=raw_prompt,
                     glb_path=output_glb_path,
-                    thumbnail_path=tex_paths.get("basecolor"),
+                    thumbnail_path=export_stats.get("thumbnail_path", tex_paths.get("basecolor")),
                     polygon_count=final_poly_count,
                     file_size=final_file_size,
                     texture_resolution=1024 if quality != "standard" else 512,

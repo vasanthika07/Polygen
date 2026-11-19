@@ -1,9 +1,10 @@
 import os
 import logging
+from datetime import datetime, timedelta
 from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 from app.models.asset import GeneratedAsset
 from app.models.user import User
@@ -21,17 +22,61 @@ class AssetService:
         db: AsyncSession,
         limit: int = 50,
         offset: int = 0,
-        user_id: Optional[str] = None
+        user_id: Optional[str] = None,
+        search: Optional[str] = None,
+        sort_by: str = "newest",
+        date_filter: Optional[str] = "all"
     ) -> Tuple[List[GeneratedAsset], int]:
-        """Lists assets with pagination. If user_id is provided, filters strictly by owner."""
+        """Lists assets with pagination, search, date filtering, and sorting. If user_id is provided, filters strictly by owner."""
         query = select(GeneratedAsset)
         count_query = select(func.count(GeneratedAsset.id))
 
+        # Strict user ownership isolation
         if user_id:
             query = query.where(GeneratedAsset.user_id == user_id)
             count_query = count_query.where(GeneratedAsset.user_id == user_id)
 
-        query = query.order_by(GeneratedAsset.created_at.desc()).offset(offset).limit(limit)
+        # Keyword search matching asset_name or original_prompt
+        if search and search.strip():
+            term = f"%{search.strip()}%"
+            search_cond = or_(
+                GeneratedAsset.asset_name.ilike(term),
+                GeneratedAsset.original_prompt.ilike(term)
+            )
+            query = query.where(search_cond)
+            count_query = count_query.where(search_cond)
+
+        # Creation date filter
+        if date_filter and date_filter != "all":
+            now = datetime.utcnow()
+            if date_filter == "today":
+                from_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            elif date_filter == "week":
+                from_date = now - timedelta(days=7)
+            elif date_filter == "month":
+                from_date = now - timedelta(days=30)
+            else:
+                from_date = None
+
+            if from_date:
+                query = query.where(GeneratedAsset.created_at >= from_date)
+                count_query = count_query.where(GeneratedAsset.created_at >= from_date)
+
+        # Dynamic sorting
+        if sort_by == "oldest":
+            query = query.order_by(GeneratedAsset.created_at.asc())
+        elif sort_by == "polygons_desc":
+            query = query.order_by(GeneratedAsset.polygon_count.desc(), GeneratedAsset.created_at.desc())
+        elif sort_by == "polygons_asc":
+            query = query.order_by(GeneratedAsset.polygon_count.asc(), GeneratedAsset.created_at.desc())
+        elif sort_by == "size_desc":
+            query = query.order_by(GeneratedAsset.file_size.desc(), GeneratedAsset.created_at.desc())
+        elif sort_by == "name_asc":
+            query = query.order_by(GeneratedAsset.asset_name.asc())
+        else: # "newest" default
+            query = query.order_by(GeneratedAsset.created_at.desc())
+
+        query = query.offset(offset).limit(limit)
 
         result = await db.execute(query)
         assets = result.scalars().all()

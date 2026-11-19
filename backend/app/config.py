@@ -84,10 +84,11 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-# Ensure all 5 designated storage directories exist
+# Ensure all designated storage directories exist
 for folder in [
     settings.STORAGE_RAW_DIR,
     settings.STORAGE_PROCESSED_DIR,
+    settings.STORAGE_UNWRAPPED_DIR,
     settings.STORAGE_TEXTURES_DIR,
     settings.STORAGE_EXPORTS_DIR,
     settings.STORAGE_THUMBNAILS_DIR,

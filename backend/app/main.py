@@ -14,6 +14,8 @@ from app.api.generate import router as generate_router, websocket_job_status
 from app.api.assets import router as assets_router
 from app.api.health import router as health_router
 from app.api.prompt import router as prompt_router
+from app.api.materials import router as materials_router
+from app.api.optimizer import router as optimizer_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -57,6 +59,8 @@ app.include_router(generate_router, prefix="/api")
 app.include_router(assets_router, prefix="/api")
 app.include_router(health_router, prefix="/api")
 app.include_router(prompt_router, prefix="/api")
+app.include_router(materials_router, prefix="/api")
+app.include_router(optimizer_router, prefix="/api")
 
 # Direct WebSocket endpoint matching specification: WS /ws/jobs/{job_id}
 app.add_api_websocket_route("/ws/jobs/{job_id}", websocket_job_status)

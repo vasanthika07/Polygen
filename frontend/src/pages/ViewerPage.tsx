@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
+import { assetApi } from '../services/api';
 import { ModelViewer } from '../components/ModelViewer';
 import {
   Box,
   Download,
   Sun,
-  Sparkles
+  Sparkles,
+  Palette
 } from 'lucide-react';
 
 const SAMPLE_MODELS = [
@@ -52,6 +54,7 @@ export const ViewerPage: React.FC = () => {
     activeAsset,
     setActiveAsset,
     assets,
+    setAssets,
     renderMode,
     setRenderMode,
     environmentPreset,
@@ -60,12 +63,29 @@ export const ViewerPage: React.FC = () => {
     setAmbientIntensity,
     directionalIntensity,
     setDirectionalIntensity,
-    navigate
+    navigate,
+    isMaterialPanelOpen,
+    setIsMaterialPanelOpen
   } = useStore();
 
   const [selectedModelId, setSelectedModelId] = useState(
     activeAsset?.asset_id || SAMPLE_MODELS[0].id
   );
+
+  // Auto-fetch user assets on mount if authenticated
+  useEffect(() => {
+    if (localStorage.getItem('polygen_token')) {
+      assetApi.listAssets()
+        .then((res) => {
+          if (res.data?.items && res.data.items.length > 0) {
+            setAssets(res.data.items);
+          }
+        })
+        .catch(() => {
+          // Keep default sample assets if unauthenticated or offline
+        });
+    }
+  }, [setAssets]);
 
   // Combine user assets with sample models for switching
   const allSelectableModels = [
@@ -163,6 +183,7 @@ export const ViewerPage: React.FC = () => {
               { id: 'solid', label: 'Clay Solid', desc: 'Neutral Lambert' },
               { id: 'wireframe', label: 'Wireframe', desc: 'Mesh Edges' },
               { id: 'normals', label: 'Surface Normals', desc: 'RGB Vector Field' },
+              { id: 'unlit', label: 'Unlit Color', desc: 'Base Texture Flat' },
             ].map((mode) => (
               <button
                 key={mode.id}
@@ -179,6 +200,14 @@ export const ViewerPage: React.FC = () => {
               </button>
             ))}
           </div>
+
+          <button
+            onClick={() => setIsMaterialPanelOpen(!isMaterialPanelOpen)}
+            className="w-full mt-1 py-2 px-3 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 hover:from-blue-600/30 hover:to-indigo-600/30 border border-blue-500/30 hover:border-blue-500/50 rounded-xl text-xs font-semibold text-blue-300 flex items-center justify-center gap-2 transition-all shadow-sm"
+          >
+            <Palette className="w-3.5 h-3.5 text-amber-400" />
+            <span>{isMaterialPanelOpen ? 'Hide' : 'Configure'} PBR Material & Presets</span>
+          </button>
         </div>
 
         {/* Panel 2: Environment & Lighting */}

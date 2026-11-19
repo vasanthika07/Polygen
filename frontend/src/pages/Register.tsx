@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
-import { authApi } from '../services/api';
+import { authApi, extractErrorMessage } from '../services/api';
 import {
   Box,
   Lock,
@@ -110,10 +110,7 @@ export const Register: React.FC = () => {
       navigate('dashboard');
     } catch (err: any) {
       console.error('Registration failed:', err);
-      const errorMsg =
-        err.response?.data?.detail ||
-        err.response?.data?.error?.message ||
-        'Registration failed. Please check your information.';
+      const errorMsg = extractErrorMessage(err, 'Registration failed. Please check your information.');
       setError(errorMsg);
       addNotification({
         title: 'Registration Error',

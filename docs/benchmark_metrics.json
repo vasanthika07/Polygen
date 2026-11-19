@@ -1,0 +1,203 @@
+{
+  "environment": {
+    "cpu_cores": 12,
+    "ram_gb": 15.71,
+    "device": "CPU (Host Architecture)",
+    "cuda": false,
+    "torch_version": "2.14.1+cpu"
+  },
+  "scenarios": [
+    {
+      "id": "rusted_sword",
+      "title": "Rusted Medieval Broadsword",
+      "prompt": "A rusted medieval broadsword with weathered steel blade, chipped edge, leather-wrapped crossguard, and a glowing blue sapphire gemstone in the hilt.",
+      "polygon_budget": 5000,
+      "timings_ms": {
+        "prompt_analysis": 53.63,
+        "geometry_generation": 718.54,
+        "mesh_processing": 56.86,
+        "uv_mapping": 1195.64,
+        "texture_generation": 1396.62,
+        "mesh_optimization": 18.04,
+        "glb_export": 1090.89,
+        "viewer_load_parse": 1.73,
+        "total_duration_s": 4.53
+      },
+      "geometry": {
+        "raw_vertices": 2200,
+        "raw_faces": 4364,
+        "cleaned_vertices": 2200,
+        "cleaned_faces": 4364,
+        "optimized_vertices": 2200,
+        "optimized_faces": 4364,
+        "face_reduction_ratio": 0.0,
+        "is_watertight": true
+      },
+      "output_asset": {
+        "glb_file_bytes": 1396176,
+        "glb_file_mb": 1.33,
+        "texture_maps": [
+          "basecolor",
+          "roughness",
+          "metallic",
+          "normal",
+          "ambient_occlusion",
+          "emissive",
+          "orm",
+          "textured_preview"
+        ],
+        "texture_resolution": "1024x1024",
+        "validation_passed": true
+      },
+      "memory_mb": {
+        "start": 280.93,
+        "end": 357.23,
+        "delta": 76.3
+      }
+    },
+    {
+      "id": "glowing_sapphire",
+      "title": "Glowing Sapphire Crystal",
+      "prompt": "A cut glowing blue sapphire gemstone crystal with luminous facets and emissive magical aura.",
+      "polygon_budget": 3000,
+      "timings_ms": {
+        "prompt_analysis": 4.04,
+        "geometry_generation": 463.89,
+        "mesh_processing": 56.41,
+        "uv_mapping": 1624.69,
+        "texture_generation": 1707.42,
+        "mesh_optimization": 50.35,
+        "glb_export": 913.47,
+        "viewer_load_parse": 1.77,
+        "total_duration_s": 4.82
+      },
+      "geometry": {
+        "raw_vertices": 2636,
+        "raw_faces": 5256,
+        "cleaned_vertices": 2636,
+        "cleaned_faces": 5256,
+        "optimized_vertices": 1508,
+        "optimized_faces": 3000,
+        "face_reduction_ratio": 42.92,
+        "is_watertight": true
+      },
+      "output_asset": {
+        "glb_file_bytes": 1355440,
+        "glb_file_mb": 1.29,
+        "texture_maps": [
+          "basecolor",
+          "roughness",
+          "metallic",
+          "normal",
+          "ambient_occlusion",
+          "emissive",
+          "orm",
+          "textured_preview"
+        ],
+        "texture_resolution": "1024x1024",
+        "validation_passed": true
+      },
+      "memory_mb": {
+        "start": 357.23,
+        "end": 375.02,
+        "delta": 17.78
+      }
+    },
+    {
+      "id": "granite_sculpture",
+      "title": "Weathered Granite Gargoyle",
+      "prompt": "An ancient weathered granite stone gargoyle sculpture with rough chiseled stone texture and moss accents.",
+      "polygon_budget": 7500,
+      "timings_ms": {
+        "prompt_analysis": 1.8,
+        "geometry_generation": 478.78,
+        "mesh_processing": 52.73,
+        "uv_mapping": 1601.06,
+        "texture_generation": 1667.31,
+        "mesh_optimization": 21.02,
+        "glb_export": 930.7,
+        "viewer_load_parse": 3.44,
+        "total_duration_s": 4.76
+      },
+      "geometry": {
+        "raw_vertices": 2636,
+        "raw_faces": 5256,
+        "cleaned_vertices": 2636,
+        "cleaned_faces": 5256,
+        "optimized_vertices": 2636,
+        "optimized_faces": 5256,
+        "face_reduction_ratio": 0.0,
+        "is_watertight": true
+      },
+      "output_asset": {
+        "glb_file_bytes": 3155872,
+        "glb_file_mb": 3.01,
+        "texture_maps": [
+          "basecolor",
+          "roughness",
+          "metallic",
+          "normal",
+          "ambient_occlusion",
+          "emissive",
+          "orm",
+          "textured_preview"
+        ],
+        "texture_resolution": "1024x1024",
+        "validation_passed": true
+      },
+      "memory_mb": {
+        "start": 375.02,
+        "end": 372.77,
+        "delta": 0.0
+      }
+    },
+    {
+      "id": "carved_chest",
+      "title": "Carved Oak Treasure Chest",
+      "prompt": "An ornate carved oak wooden treasure chest with reinforced iron banding and heavy padlock.",
+      "polygon_budget": 6000,
+      "timings_ms": {
+        "prompt_analysis": 1.99,
+        "geometry_generation": 376.59,
+        "mesh_processing": 49.51,
+        "uv_mapping": 1185.59,
+        "texture_generation": 1081.35,
+        "mesh_optimization": 7.34,
+        "glb_export": 1053.01,
+        "viewer_load_parse": 3.41,
+        "total_duration_s": 3.76
+      },
+      "geometry": {
+        "raw_vertices": 738,
+        "raw_faces": 1452,
+        "cleaned_vertices": 734,
+        "cleaned_faces": 1452,
+        "optimized_vertices": 734,
+        "optimized_faces": 1452,
+        "face_reduction_ratio": 0.0,
+        "is_watertight": false
+      },
+      "output_asset": {
+        "glb_file_bytes": 3184252,
+        "glb_file_mb": 3.04,
+        "texture_maps": [
+          "basecolor",
+          "roughness",
+          "metallic",
+          "normal",
+          "ambient_occlusion",
+          "emissive",
+          "orm",
+          "textured_preview"
+        ],
+        "texture_resolution": "1024x1024",
+        "validation_passed": true
+      },
+      "memory_mb": {
+        "start": 372.77,
+        "end": 361.69,
+        "delta": 0.0
+      }
+    }
+  ]
+}

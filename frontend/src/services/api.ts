@@ -160,13 +160,84 @@ export interface JobStatus {
   asset_id?: string;
   created_at?: string;
   completed_at?: string;
+  duration_seconds?: number;
+  configuration?: {
+    style?: string;
+    quality?: string;
+    polygon_budget?: number;
+    target_format?: string;
+  };
   asset?: Asset;
 }
+
+/**
+ * Safely extracts human-readable error messages from any backend failure response,
+ * preventing React runtime crashes on FastAPI 422 arrays or nested error objects.
+ */
+export const extractErrorMessage = (err: any, fallback = 'An unexpected error occurred. Please try again.'): string => {
+  if (!err) return fallback;
+
+  // 0. Specific HTTP Gateway & Server Availability status codes
+  if (err.response?.status === 502) {
+    return 'PolyGen backend service is unreachable (502 Bad Gateway). Please ensure the backend server is running on port 8000.';
+  }
+  if (err.response?.status === 503) {
+    return 'PolyGen service is temporarily unavailable (503). Please try again in a few moments.';
+  }
+  if (err.response?.status === 504) {
+    return 'Gateway timeout (504). The AI generation or request took too long to respond.';
+  }
+
+  // 1. Custom structured domain error payload with detailed field validation messages
+  const errorObj = err.response?.data?.error;
+  if (errorObj) {
+    if (Array.isArray(errorObj.details) && errorObj.details.length > 0) {
+      const messages = errorObj.details
+        .map((d: any) => d.message || d.msg || `${d.field}: invalid value`)
+        .filter(Boolean);
+      if (messages.length > 0) return messages.join('. ');
+    }
+    if (typeof errorObj.message === 'string' && errorObj.message.trim()) {
+      return errorObj.message.trim();
+    }
+  }
+
+  // 2. FastAPI default detail field
+  const detail = err.response?.data?.detail;
+  if (typeof detail === 'string' && detail.trim()) {
+    return detail.trim();
+  }
+  if (Array.isArray(detail) && detail.length > 0) {
+    const messages = detail
+      .map((d: any) => d.msg || d.message || JSON.stringify(d))
+      .filter(Boolean);
+    if (messages.length > 0) return messages.join('. ');
+  }
+  if (typeof detail === 'object' && detail !== null) {
+    if (typeof detail.message === 'string') return detail.message;
+    if (typeof detail.msg === 'string') return detail.msg;
+  }
+
+  // 3. Top-level response message
+  if (typeof err.response?.data?.message === 'string' && err.response.data.message.trim()) {
+    return err.response.data.message.trim();
+  }
+
+  // 4. Axios standard network error
+  if (err.message === 'Network Error' || err.code === 'ERR_NETWORK') {
+    return 'Unable to connect to PolyGen server. Please check your network connection or server status.';
+  }
+  if (typeof err.message === 'string' && err.message.trim()) {
+    return err.message.trim();
+  }
+
+  return fallback;
+};
 
 export const authApi = {
   register: (data: { name?: string; username?: string; email: string; password: string }) =>
     api.post<AuthResponse>('/auth/register', data),
-  login: (data: { username_or_email: string; password: string }) =>
+  login: (data: { username_or_email?: string; email?: string; username?: string; password: string }) =>
     api.post<AuthResponse>('/auth/login', data),
   refresh: (refreshToken: string) =>
     api.post<AuthResponse>('/auth/refresh', { refresh_token: refreshToken }),
@@ -183,22 +254,49 @@ export const generationApi = {
     api.post<JobStatus>('/generate', data),
   getJobStatus: (jobId: string) =>
     api.get<JobStatus>(`/jobs/${jobId}`),
-  listJobs: (limit = 50, offset = 0) =>
-    api.get<JobStatus[]>(`/jobs?limit=${limit}&offset=${offset}`),
+  listJobs: (params?: { limit?: number; offset?: number; status?: string; search?: string } | number, offset: number = 0) => {
+    if (typeof params === 'number') {
+      return api.get<JobStatus[]>(`/jobs?limit=${params}&offset=${offset}`);
+    }
+    const q = new URLSearchParams();
+    if (params?.limit) q.set('limit', String(params.limit));
+    if (params?.offset) q.set('offset', String(params.offset));
+    if (params?.status && params.status !== 'all') q.set('status', params.status);
+    if (params?.search) q.set('search', params.search);
+    const queryString = q.toString();
+    return api.get<JobStatus[]>(queryString ? `/jobs?${queryString}` : '/jobs');
+  },
 };
 
 export const assetApi = {
-  listAssets: (limit = 50, offset = 0) =>
-    api.get<{ items: Asset[]; total: number }>(`/assets?limit=${limit}&offset=${offset}`),
+  listAssets: (params?: { limit?: number; offset?: number; search?: string; sort_by?: string; date_filter?: string } | number, offset: number = 0) => {
+    if (typeof params === 'number') {
+      return api.get<{ items: Asset[]; total: number }>(`/assets?limit=${params}&offset=${offset}`);
+    }
+    const q = new URLSearchParams();
+    if (params?.limit) q.set('limit', String(params.limit));
+    if (params?.offset) q.set('offset', String(params.offset));
+    if (params?.search) q.set('search', params.search);
+    if (params?.sort_by) q.set('sort_by', params.sort_by);
+    if (params?.date_filter) q.set('date_filter', params.date_filter);
+    const queryString = q.toString();
+    return api.get<{ items: Asset[]; total: number }>(queryString ? `/assets?${queryString}` : '/assets');
+  },
   getAsset: (assetId: string) =>
     api.get<Asset>(`/assets/${assetId}`),
   deleteAsset: (assetId: string) =>
     api.delete(`/assets/${assetId}`),
-  getDownloadUrl: (assetId: string) => {
+  getDownloadUrl: (assetId: string, exportOption: string = 'standard') => {
     const token = localStorage.getItem('polygen_token');
-    return token
-      ? `/api/assets/${assetId}/download?token=${encodeURIComponent(token)}`
-      : `/api/assets/${assetId}/download`;
+    const params = new URLSearchParams();
+    if (exportOption && exportOption !== 'standard') {
+      params.set('export_option', exportOption);
+    }
+    if (token) {
+      params.set('token', token);
+    }
+    const query = params.toString();
+    return query ? `/api/assets/${assetId}/download?${query}` : `/api/assets/${assetId}/download`;
   },
   getPreviewUrl: (assetId: string) => {
     const token = localStorage.getItem('polygen_token');
@@ -249,6 +347,131 @@ export const promptApi = {
 
 export const healthApi = {
   check: () => api.get('/health'),
+};
+
+export interface MaterialEvaluationResponse {
+  classification: {
+    material_class: string;
+    conductor_score: number;
+    dielectric_score: number;
+    transparency_score: number;
+    emissive_score: number;
+    confidence: number;
+  };
+  gltf_pbr_parameters: {
+    name: string;
+    material_class: string;
+    base_color_factor: [number, number, number, number];
+    metallic_factor: number;
+    roughness_factor: number;
+    normal_scale: number;
+    occlusion_strength: number;
+    emissive_factor: [number, number, number];
+    emissive_intensity: number;
+    alpha_mode: 'OPAQUE' | 'MASK' | 'BLEND';
+    alpha_cutoff: number;
+    double_sided: boolean;
+  };
+  gltf_validation: {
+    is_valid: boolean;
+    errors: string[];
+    warnings: string[];
+    gltf_compliance_score: number;
+    status: string;
+  };
+}
+
+export const materialsApi = {
+  getPresets: () => api.get<{ count: number; presets: Record<string, any> }>('/materials/presets'),
+  evaluate: (data: {
+    prompt?: string;
+    material_type?: string;
+    details?: string[];
+    custom_overrides?: Record<string, any>;
+  }) => api.post<MaterialEvaluationResponse>('/materials/evaluate', data),
+};
+
+export interface MeshAnalysisResponse {
+  polygon_count: number;
+  vertex_count: number;
+  triangle_density: number;
+  surface_area: number;
+  volume: number;
+  is_watertight: boolean;
+  is_manifold: boolean;
+  boundary_edges_count: number;
+  has_uv: boolean;
+  has_normals: boolean;
+  has_material: boolean;
+  bounding_box: {
+    min: [number, number, number];
+    max: [number, number, number];
+    extents: [number, number, number];
+    max_dimension: number;
+  };
+  recommended_preset: string;
+  file_path?: string;
+  file_size_bytes?: number;
+}
+
+export interface OptimizationReport {
+  original_polygon_count: number;
+  final_polygon_count: number;
+  reduction_percentage: number;
+  original_vertex_count: number;
+  final_vertex_count: number;
+  original_file_size_bytes: number;
+  final_file_size_bytes: number;
+  file_size_reduction_percentage: number;
+  optimization_duration_seconds: number;
+  budget_preset: string;
+  target_budget: number;
+  bounds_before: {
+    min: [number, number, number];
+    max: [number, number, number];
+    extents: [number, number, number];
+    max_dimension: number;
+  };
+  bounds_after: {
+    min: [number, number, number];
+    max: [number, number, number];
+    extents: [number, number, number];
+    max_dimension: number;
+  };
+  validation: {
+    status: string;
+    is_valid: boolean;
+    is_watertight: boolean;
+    is_manifold: boolean;
+    degenerate_faces: number;
+    uv_valid: boolean;
+    errors: string[];
+    warnings: string[];
+  };
+  status: string;
+}
+
+export interface OptimizationResponse {
+  status: string;
+  optimized_file_path: string;
+  optimized_file_name: string;
+  report: OptimizationReport;
+}
+
+export const optimizerApi = {
+  getPresets: () => api.get<{ presets: Record<string, any> }>('/optimizer/presets'),
+  analyze: (data: { asset_id?: string; mesh_path?: string }) =>
+    api.post<MeshAnalysisResponse>('/optimizer/analyze', data),
+  optimize: (data: {
+    asset_id?: string;
+    mesh_path?: string;
+    budget_preset?: string;
+    custom_budget?: number;
+    normalize_bounds?: boolean;
+    align_ground?: boolean;
+    target_scale?: number;
+    remove_duplicates?: boolean;
+  }) => api.post<OptimizationResponse>('/optimizer/optimize', data),
 };
 
 export default api;

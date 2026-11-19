@@ -3,6 +3,9 @@ from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+from typing import Optional, Any
+
 def validate_password_complexity(password: str) -> str:
     """Validates that a password satisfies security complexity criteria."""
     if len(password) < 8:
@@ -23,6 +26,11 @@ class UserRegister(BaseModel):
     email: EmailStr = Field(..., description="User email address")
     password: str = Field(..., max_length=128, description="Password (at least 8 chars with uppercase, lowercase, digit/symbol)")
 
+    @field_validator("name")
+    @classmethod
+    def trim_name(cls, v: Optional[str]) -> Optional[str]:
+        return v.strip() if v else None
+
     @field_validator("password")
     @classmethod
     def check_password_complexity(cls, v: str) -> str:
@@ -33,6 +41,10 @@ class UserRegister(BaseModel):
     def check_username_validity(cls, v: Optional[str]) -> Optional[str]:
         if v is not None:
             v = v.strip()
+            if not v:
+                return None
+            if len(v) < 3:
+                raise ValueError("Username must be at least 3 characters long")
             if not re.match(r"^[a-zA-Z0-9_-]+$", v):
                 raise ValueError("Username can only contain alphanumeric characters, underscores, and hyphens")
         return v
@@ -41,10 +53,17 @@ class UserLogin(BaseModel):
     username_or_email: str = Field(..., min_length=1, max_length=255, description="Username or email address")
     password: str = Field(..., min_length=1, max_length=128, description="Account password")
 
-    @field_validator("username_or_email")
+    @model_validator(mode="before")
     @classmethod
-    def trim_username_or_email(cls, v: str) -> str:
-        return v.strip()
+    def resolve_login_credentials(cls, values: Any) -> Any:
+        if isinstance(values, dict):
+            # Transparently accept username_or_email, email, or username
+            identifier = values.get("username_or_email") or values.get("email") or values.get("username")
+            if identifier is not None:
+                values["username_or_email"] = str(identifier).strip()
+            elif "username_or_email" not in values:
+                raise ValueError("Username or email address is required")
+        return values
 
 class UserUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=128, description="Updated display name")

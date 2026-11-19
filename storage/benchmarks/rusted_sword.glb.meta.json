@@ -1,0 +1,49 @@
+{
+  "asset_name": "PolyGen_PBR_Material",
+  "export_profile": "standard",
+  "glb_path": "K:\\Polygen\\storage\\benchmarks\\rusted_sword.glb",
+  "thumbnail_path": "K:\\Polygen\\storage\\benchmarks\\../thumbnails\\rusted_sword_thumb.png",
+  "file_size_bytes": 1396176,
+  "file_size_mb": 1.33,
+  "polygon_count": 4364,
+  "vertex_count": 2200,
+  "texture_resolution": 1024,
+  "pbr_channels_embedded": [
+    "basecolor",
+    "roughness",
+    "metallic",
+    "normal",
+    "occlusion",
+    "emissive"
+  ],
+  "bounding_box_dimensions": [
+    0.27371272444725037,
+    0.07750678062438965,
+    1.0
+  ],
+  "validation_report": {
+    "is_valid": true,
+    "valid": true,
+    "errors": [],
+    "warnings": [
+      "Mesh 0 primitive has no NORMAL accessor"
+    ],
+    "file_size_bytes": 1396176,
+    "file_size_mb": 1.33,
+    "version": 2,
+    "meshes_count": 1,
+    "materials_count": 1,
+    "textures_count": 5,
+    "images_count": 5,
+    "browser_compatible": true,
+    "blender_compatible": true
+  },
+  "compatibility": {
+    "browser_threejs": true,
+    "blender_import": true,
+    "unreal_engine_5": true,
+    "unity_engine": true
+  },
+  "export_duration_seconds": 1.0901,
+  "created_at": "2026-11-19T14:54:39Z"
+}

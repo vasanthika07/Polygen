@@ -1,0 +1,49 @@
+{
+  "asset_name": "PolyGen_PBR_Material",
+  "export_profile": "optimized",
+  "glb_path": "K:\\Polygen\\tests\\output_part12\\profile_optimized.glb",
+  "thumbnail_path": "K:\\Polygen\\tests\\output_part12\\../thumbnails\\profile_optimized_thumb.png",
+  "file_size_bytes": 575568,
+  "file_size_mb": 0.55,
+  "polygon_count": 320,
+  "vertex_count": 162,
+  "texture_resolution": 512,
+  "pbr_channels_embedded": [
+    "basecolor",
+    "roughness",
+    "metallic",
+    "normal",
+    "occlusion",
+    "emissive"
+  ],
+  "bounding_box_dimensions": [
+    2.0,
+    2.0,
+    2.0
+  ],
+  "validation_report": {
+    "is_valid": true,
+    "valid": true,
+    "errors": [],
+    "warnings": [
+      "Mesh 0 primitive has no NORMAL accessor"
+    ],
+    "file_size_bytes": 575568,
+    "file_size_mb": 0.55,
+    "version": 2,
+    "meshes_count": 1,
+    "materials_count": 1,
+    "textures_count": 4,
+    "images_count": 4,
+    "browser_compatible": true,
+    "blender_compatible": true
+  },
+  "compatibility": {
+    "browser_threejs": true,
+    "blender_import": true,
+    "unreal_engine_5": true,
+    "unity_engine": true
+  },
+  "export_duration_seconds": 0.1672,
+  "created_at": "2026-11-19T14:59:56Z"
+}

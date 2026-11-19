@@ -86,6 +86,8 @@ class MeshCleaningPipeline:
         # STAGE 1: Mesh Loading
         # ---------------------------------------------------------
         mesh = self.load_mesh(mesh_input)
+        if len(mesh.vertices) < 3 or len(mesh.faces) < 1:
+            raise ValueError(f"Mesh has insufficient geometry for cleaning: {len(mesh.vertices)} vertices, {len(mesh.faces)} faces.")
         report_messages.append(f"Loaded mesh with {len(mesh.vertices)} vertices and {len(mesh.faces)} faces.")
 
         # Capture baseline statistics prior to cleaning

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
+import { assetApi } from '../services/api';
 import { ModelViewer } from '../components/ModelViewer';
 import { 
   Box, 
@@ -17,6 +18,7 @@ export const AssetDetails: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'textures' | 'geometry' | 'engine'>('textures');
   const [selectedTexture, setSelectedTexture] = useState<'baseColor' | 'normal' | 'roughness' | 'metallic' | 'emissive'>('baseColor');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [exportProfile, setExportProfile] = useState<'standard' | 'high_quality' | 'optimized'>('standard');
 
   // Fallback if no active asset
   const asset = activeAsset || {
@@ -53,14 +55,26 @@ export const AssetDetails: React.FC = () => {
           <span>Back to Asset Library</span>
         </button>
 
-        <a
-          href={asset.glb_url}
-          download={`${asset.asset_name.replace(/[^a-zA-Z0-9]/g, '_')}.glb`}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-blue-500/25 transition-all"
-        >
-          <Download className="w-4 h-4" />
-          <span>Export GLB Package</span>
-        </a>
+        <div className="flex items-center gap-3">
+          <select
+            value={exportProfile}
+            onChange={(e) => setExportProfile(e.target.value as any)}
+            className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500 font-medium"
+          >
+            <option value="standard">Standard GLB (1024px)</option>
+            <option value="high_quality">High-Quality GLB (2048px)</option>
+            <option value="optimized">Optimized GLB (512px)</option>
+          </select>
+
+          <a
+            href={asset.asset_id ? assetApi.getDownloadUrl(asset.asset_id, exportProfile) : asset.glb_url}
+            download={`${asset.asset_name.replace(/[^a-zA-Z0-9]/g, '_')}_${exportProfile}.glb`}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-blue-500/25 transition-all"
+          >
+            <Download className="w-4 h-4" />
+            <span>Export GLB</span>
+          </a>
+        </div>
       </div>
 
       {/* Main Asset Header */}

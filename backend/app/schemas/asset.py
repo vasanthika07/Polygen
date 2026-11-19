@@ -9,6 +9,8 @@ class AssetResponse(BaseModel):
     user_id: Optional[str] = None
     asset_name: str
     original_prompt: Optional[str] = None
+    prompt: Optional[str] = None
+    style: Optional[str] = "fantasy"
     glb_url: str
     thumbnail_url: Optional[str] = None
     preview_url: Optional[str] = None
@@ -23,6 +25,9 @@ class AssetResponse(BaseModel):
 
     @classmethod
     def from_asset_model(cls, asset):
+        meta = asset.metadata_json or {}
+        style_val = meta.get("style", "fantasy")
+
         return cls(
             id=asset.id,
             asset_id=asset.id,
@@ -30,13 +35,15 @@ class AssetResponse(BaseModel):
             user_id=asset.user_id,
             asset_name=asset.asset_name,
             original_prompt=asset.original_prompt,
+            prompt=asset.original_prompt,
+            style=style_val,
             glb_url=f"/api/assets/{asset.id}/download",
             thumbnail_url=f"/api/assets/{asset.id}/preview" if asset.thumbnail_path else None,
             preview_url=f"/api/assets/{asset.id}/preview" if asset.thumbnail_path else None,
             polygon_count=asset.polygon_count,
             file_size=asset.file_size,
             texture_resolution=asset.texture_resolution,
-            metadata=asset.metadata_json,
+            metadata=meta,
             created_at=asset.created_at,
         )
 

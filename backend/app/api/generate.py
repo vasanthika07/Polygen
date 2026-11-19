@@ -1,9 +1,10 @@
 import logging
 import socket
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import or_
 
 from app.core.database import get_db, AsyncSessionLocal
 from app.core.dependencies import get_current_user
@@ -96,19 +97,32 @@ async def generate_asset(
 
 @router.get("/jobs", response_model=List[JobStatusResponse])
 async def list_jobs(
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    status_filter: Optional[str] = Query(None, alias="status", regex="^(all|completed|processing|queued|failed|pending)$"),
+    search: Optional[str] = Query(None, description="Search prompt or job ID"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Lists generation jobs owned by the authenticated user, ordered by creation timestamp."""
-    query = (
-        select(GenerationJob)
-        .where(GenerationJob.user_id == current_user.id)
-        .order_by(GenerationJob.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-    )
+    """
+    Lists generation jobs owned by the authenticated user with filtering and search.
+    Strictly isolates history by owner.
+    """
+    query = select(GenerationJob).where(GenerationJob.user_id == current_user.id)
+
+    if status_filter and status_filter != "all":
+        query = query.where(GenerationJob.status == status_filter)
+
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.where(
+            or_(
+                GenerationJob.prompt.ilike(term),
+                GenerationJob.id.ilike(term)
+            )
+        )
+
+    query = query.order_by(GenerationJob.created_at.desc()).offset(offset).limit(limit)
 
     result = await db.execute(query)
     jobs = result.scalars().all()
@@ -117,7 +131,7 @@ async def list_jobs(
     for j in jobs:
         asset_res = await db.execute(select(GeneratedAsset).where(GeneratedAsset.job_id == j.id))
         asset = asset_res.scalars().first()
-        responses.append(JobStatusResponse.from_job_model(j, asset_id=asset.id if asset else None))
+        responses.append(JobStatusResponse.from_job_model(j, asset_id=asset.id if asset else None, asset_obj=asset))
     return responses
 
 @router.get("/jobs/{job_id}", response_model=JobStatusResponse)
@@ -143,9 +157,8 @@ async def get_job_status(
 
     asset_result = await db.execute(select(GeneratedAsset).where(GeneratedAsset.job_id == job_id))
     asset = asset_result.scalars().first()
-    asset_id = asset.id if asset else None
 
-    return JobStatusResponse.from_job_model(job, asset_id=asset_id)
+    return JobStatusResponse.from_job_model(job, asset_id=asset.id if asset else None, asset_obj=asset)
 
 @router.websocket("/ws/jobs/{job_id}")
 async def websocket_job_status(websocket: WebSocket, job_id: str):

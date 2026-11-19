@@ -30,29 +30,44 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
 async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)):
     """Registers a new user account with validated credentials and returns session tokens."""
+    import re
+    import uuid
     email_clean = user_in.email.strip().lower()
-    username_clean = (user_in.username or email_clean.split("@")[0]).strip()
+
+    if user_in.username:
+        username_clean = user_in.username.strip()
+    else:
+        raw_handle = email_clean.split("@")[0]
+        safe_handle = re.sub(r"[^a-zA-Z0-9_-]", "_", raw_handle)
+        if len(safe_handle) < 3:
+            safe_handle = f"user_{safe_handle}_{uuid.uuid4().hex[:4]}"
+        username_clean = safe_handle
+
     name_clean = (user_in.name or username_clean).strip()
 
-    # Check if username or email already registered (case-insensitive)
-    result = await db.execute(
-        select(User).where(
-            (func.lower(User.username) == username_clean.lower()) | 
-            (func.lower(User.email) == email_clean)
-        )
+    # 1. Check if email already registered (case-insensitive)
+    email_check = await db.execute(
+        select(User).where(func.lower(User.email) == email_clean)
     )
-    existing_user = result.scalars().first()
-    if existing_user:
-        if existing_user.email.lower() == email_clean:
+    if email_check.scalars().first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email address is already registered. Please sign in or use another email."
+        )
+
+    # 2. Check if username already registered (case-insensitive)
+    user_check = await db.execute(
+        select(User).where(func.lower(User.username) == username_clean.lower())
+    )
+    if user_check.scalars().first():
+        if user_in.username:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email address is already registered"
+                detail="Username is already taken. Please choose a different username."
             )
         else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Username is already taken"
-            )
+            # Auto-derived handle was taken; append short random hex
+            username_clean = f"{username_clean}_{uuid.uuid4().hex[:4]}"
     
     hashed_pwd = get_password_hash(user_in.password)
     user = User(

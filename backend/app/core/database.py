@@ -93,5 +93,10 @@ async def init_db():
                 )
                 session.add(demo_user)
                 await session.commit()
+            else:
+                from app.core.security import verify_password
+                if not verify_password("PolyGen2026Secure!", demo_user.password_hash):
+                    demo_user.password_hash = get_password_hash("PolyGen2026Secure!")
+                    await session.commit()
         except Exception:
             pass
