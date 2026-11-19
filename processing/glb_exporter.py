@@ -33,17 +33,26 @@ class GLBExporter:
         normal_img = Image.open(texture_paths["normal"]).convert("RGB")
         emissive_img = Image.open(texture_paths["emissive"]).convert("RGB")
 
+        # Load optional Ambient Occlusion
+        ao_key = next((k for k in ["ambient_occlusion", "occlusion", "ao"] if k in texture_paths), None)
+        ao_img = None
+        if ao_key and os.path.exists(texture_paths[ao_key]):
+            ao_img = Image.open(texture_paths[ao_key]).convert("L")
+
         # In glTF 2.0 standard:
-        # Metallic-Roughness texture: Green channel = Roughness, Blue channel = Metallic
+        # Metallic-Roughness texture: Green = Roughness, Blue = Metallic
+        # Occlusion texture: Red channel (packed as standard ORM texture: R=AO, G=Roughness, B=Metallic)
         res = base_img.size
         r_arr = np.array(rough_img.resize(res))
         m_arr = np.array(metal_img.resize(res))
+        ao_arr = np.array(ao_img.resize(res)) if ao_img else np.full((res[1], res[0]), 255, dtype=np.uint8)
         
-        # Combine into glTF metallic-roughness packed texture: [R=unused, G=roughness, B=metallic]
-        mr_packed = np.zeros((res[1], res[0], 3), dtype=np.uint8)
-        mr_packed[:, :, 1] = r_arr
-        mr_packed[:, :, 2] = m_arr
-        mr_packed_img = Image.fromarray(mr_packed, mode="RGB")
+        # Combine into glTF ORM packed texture: [R=Occlusion, G=Roughness, B=Metallic]
+        orm_packed = np.zeros((res[1], res[0], 3), dtype=np.uint8)
+        orm_packed[:, :, 0] = ao_arr
+        orm_packed[:, :, 1] = r_arr
+        orm_packed[:, :, 2] = m_arr
+        orm_packed_img = Image.fromarray(orm_packed, mode="RGB")
 
         # Check if emissive has glowing pixels
         emissive_arr = np.array(emissive_img)
@@ -54,8 +63,9 @@ class GLBExporter:
         material = PBRMaterial(
             name="PolyGen_PBR_Material",
             baseColorTexture=base_img,
-            metallicRoughnessTexture=mr_packed_img,
+            metallicRoughnessTexture=orm_packed_img,
             normalTexture=normal_img,
+            occlusionTexture=orm_packed_img if ao_img else None,
             emissiveTexture=emissive_img if has_glow else None,
             emissiveFactor=emissive_factor,
             doubleSided=True,
@@ -111,6 +121,7 @@ class GLBExporter:
 
         return {
             "is_valid": True,
+            "valid": True,
             "verified_vertices": verts,
             "verified_faces": faces,
             "bounding_box_dimensions": extents,

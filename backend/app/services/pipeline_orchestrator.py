@@ -154,10 +154,13 @@ class PipelineOrchestrator:
                 data={"uv_stats": uv_stats},
             )
             textures_dir = os.path.join(settings.STORAGE_TEXTURES_DIR, job_id)
+            textured_preview_path = os.path.join(settings.STORAGE_THUMBNAILS_DIR, f"{job_id}_textured_preview.png")
             tex_paths = texture_baker.generate_pbr_set(
                 prompt_data=structured_prompt,
                 output_dir=textures_dir,
+                mesh=unwrapped_mesh,
                 resolution=1024 if quality != "standard" else 512,
+                preview_path=textured_preview_path,
             )
             time.sleep(0.5)
 
