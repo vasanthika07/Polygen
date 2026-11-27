@@ -243,7 +243,7 @@ def get_3d_background_script() -> str:
                 centralGroup.position.set(11, 2.5, -4);
                 scene.add(centralGroup);
 
-                // 2. Secondary Floating Polyhedral Crystals
+                // 2. Secondary Floating Polyhedral Crystals in background
                 var crystalGroup = new THREE.Group();
                 var crystalConfigs = [
                     { geom: new THREE.DodecahedronGeometry(2.5, 0), pos: [-16, 9, -12], color: 0x818cf8, rotSpeed: 0.01 },

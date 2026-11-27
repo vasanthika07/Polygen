@@ -5,6 +5,7 @@ import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { NotificationToast } from './components/NotificationToast';
 import { AuthModal } from './components/AuthModal';
+import { ThreeBackground } from './components/ThreeBackground';
 import { Box, Loader2 } from 'lucide-react';
 
 // All 12 required Pages
@@ -152,13 +153,16 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#070a13] text-slate-100 flex font-sans selection:bg-blue-500/30 selection:text-blue-200">
+    <div className="relative min-h-screen bg-[#070a13]/70 backdrop-blur-[1px] text-slate-100 flex font-sans selection:bg-blue-500/30 selection:text-blue-200 overflow-x-hidden">
+      {/* Global Interactive 3D Ambient WebGL Background */}
+      <ThreeBackground />
+
       {/* Collapsible Professional Sidebar (hidden on public/auth pages) */}
       {!isFullBleedPage && <Sidebar />}
 
       {/* Main Content Area */}
       <div
-        className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${
+        className={`relative z-10 flex-1 flex flex-col min-w-0 transition-all duration-300 ${
           isFullBleedPage
             ? 'ml-0'
             : sidebarCollapsed
@@ -175,7 +179,7 @@ export const App: React.FC = () => {
         </main>
 
         {/* Global Footer */}
-        <footer className="w-full border-t border-slate-800/80 bg-slate-950/60 py-6 px-4 lg:px-8 mt-auto">
+        <footer className="w-full border-t border-slate-800/80 bg-slate-950/40 backdrop-blur-md py-6 px-4 lg:px-8 mt-auto">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
             <div>
               <span className="font-semibold text-slate-400">PolyGen</span> – Generative Text-to-3D Asset Pipeline.

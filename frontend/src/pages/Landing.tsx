@@ -29,7 +29,7 @@ export const Landing: React.FC = () => {
   };
 
   return (
-    <div className="w-full min-h-screen bg-[#070a13] text-slate-100 flex flex-col">
+    <div className="w-full min-h-screen bg-transparent text-slate-100 flex flex-col">
       {/* Hero Section */}
       <section className="relative overflow-hidden pt-12 pb-20 px-4 sm:px-6 lg:px-8 border-b border-slate-800/80">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(59,130,246,0.15),rgba(255,255,255,0))] pointer-events-none" />
