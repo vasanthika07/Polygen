@@ -13,7 +13,7 @@ from app.core.websocket_manager import ws_manager
 from app.models.user import User
 from app.models.job import GenerationJob
 from app.models.asset import GeneratedAsset
-from app.schemas.job import GenerationRequest, JobStatusResponse
+from app.schemas.job import GenerationRequest, MultimodalGenerationRequest, JobStatusResponse
 from app.services.pipeline_orchestrator import pipeline_orchestrator
 from app.config import settings
 
@@ -93,6 +93,90 @@ async def generate_asset(
             target_format=request.target_format,
         )
 
+    return JobStatusResponse.from_job_model(job)
+
+@router.post("/generate/multimodal", response_model=JobStatusResponse, status_code=status.HTTP_202_ACCEPTED)
+async def generate_multimodal_asset_endpoint(
+    request: MultimodalGenerationRequest,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Submits a multimodal generative 3D synthesis request combining image, voice, and text directives.
+    """
+    from datetime import datetime
+    resolved_prompt = request.prompt or "Multimodal 3D reference asset"
+    config_payload = {
+        "style": request.style,
+        "quality": request.quality,
+        "polygon_budget": request.polygon_budget,
+        "target_format": request.target_format,
+        "has_image": bool(request.image_base64 or request.image_url),
+        "has_audio": bool(request.audio_transcript),
+    }
+
+    job = GenerationJob(
+        user_id=current_user.id,
+        prompt=resolved_prompt,
+        configuration=config_payload,
+        status="queued",
+        progress=0,
+        current_stage="queued",
+    )
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+
+    async def run_mm_job(job_id: str, req_data: MultimodalGenerationRequest, uid: str):
+        from ai_models.multimodal.multimodal_generator import multimodal_generator
+        from app.models.asset import GeneratedAsset
+        async with AsyncSessionLocal() as session:
+            res_job = await session.execute(select(GenerationJob).where(GenerationJob.id == job_id))
+            job_obj = res_job.scalars().first()
+            if not job_obj:
+                return
+            job_obj.status = "processing"
+            job_obj.current_stage = "multimodal_synthesis"
+            job_obj.progress = 30
+            await session.commit()
+
+            try:
+                img_input = req_data.image_base64 or req_data.image_url
+                res = multimodal_generator.generate_multimodal_asset(
+                    text_prompt=req_data.prompt,
+                    image_input=img_input,
+                    audio_transcript=req_data.audio_transcript,
+                    style_override=req_data.style,
+                    polygon_budget=req_data.polygon_budget or 5000,
+                    quality=req_data.quality or "high",
+                )
+                
+                asset = GeneratedAsset(
+                    job_id=job_id,
+                    user_id=uid,
+                    asset_name=req_data.prompt or "Multimodal 3D Asset",
+                    original_prompt=res["fused_prompt"],
+                    glb_path=res["glb_path"],
+                    thumbnail_path=res.get("thumbnail_path"),
+                    polygon_count=res["polygon_count"],
+                    file_size=int(res["file_size_mb"] * 1024 * 1024),
+                    metadata_json={"generation_duration": res["total_duration_seconds"]},
+                )
+                session.add(asset)
+                
+                job_obj.status = "completed"
+                job_obj.current_stage = "completed"
+                job_obj.progress = 100
+                job_obj.completed_at = datetime.utcnow()
+                await session.commit()
+            except Exception as e:
+                logger.error(f"Multimodal generation failed: {e}", exc_info=True)
+                job_obj.status = "failed"
+                job_obj.error_message = str(e)
+                await session.commit()
+
+    background_tasks.add_task(run_mm_job, job.id, request, current_user.id)
     return JobStatusResponse.from_job_model(job)
 
 @router.get("/jobs", response_model=List[JobStatusResponse])

@@ -26,6 +26,16 @@ class GenerationRequest(BaseModel):
                 v = v[1:]
         return v
 
+class MultimodalGenerationRequest(BaseModel):
+    prompt: Optional[str] = Field(None, max_length=1000, description="Natural language description or refinement directives")
+    image_base64: Optional[str] = Field(None, description="Base64 encoded image or data URI")
+    image_url: Optional[str] = Field(None, description="URL to reference image")
+    audio_transcript: Optional[str] = Field(None, description="Audio voice prompt transcription")
+    style: Optional[str] = Field("realistic", description="Visual style")
+    quality: Optional[str] = Field("high", description="Quality preset: standard, high, ultra")
+    polygon_budget: Optional[int] = Field(5000, ge=500, le=50000, description="Target polygon budget")
+    target_format: Optional[str] = Field("glb", description="Export format")
+
 class StructuredPrompt(BaseModel):
     object: str
     style: str
